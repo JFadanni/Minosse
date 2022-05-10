@@ -1,0 +1,47 @@
+#! /bin/bash
+
+#--------------------------------------------------------------------------------
+#This file is part of Minosse.
+#
+#Minosse is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#Minosse is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Minosse version 1.0.0, 6th May 2022
+#---------------------------------------------------------------------------------
+
+case "\$1" in
+	start)
+		run=\$(ps -eo args | grep Minosse.py | grep python)
+		if [[ -n \$run ]]; then
+			echo -e '\nMinosse is already running\n'
+			exit
+		else 
+			nohup $instdir/Minosse.py > /dev/null 2>&1 &
+			echo 'Starting Minosse ...'
+			sleep 2
+			echo 'Minosse demon started'
+		fi
+	;;
+	stop)
+		sed s/up/stop/ $instdir/conf.mns > $instdir/1
+		mv $instdir/1 $instdir/conf.mns
+		echo 'Stopping Minosse ...' 
+		sleep 2
+		echo 'Minosse demon stopped'
+	;;
+	*)
+		echo -e "\nUsage: minosse start/stop"
+		echo -e '  start or stop the minosse queue demon\n'
+		exit
+	;;
+esac

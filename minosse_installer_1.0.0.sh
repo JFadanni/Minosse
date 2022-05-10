@@ -706,7 +706,7 @@ def checkdemon(file6):
         cleanstatus(status)
         stop=replace(stop,'down','status',0)
         writeallfile(file6,stop)
-	writemessage('---MINOSSE STOPS---')
+        writemessage('---MINOSSE STOPS---')
         sys.exit(0)
     return
 
@@ -812,9 +812,9 @@ def ifrunning():
     if len(a) != 1 :
         sys.exit(0)
     if status == 'down':
-	print ('\n','-'*40)
-	print ('no minosse demon running!')
-	print ('-'*40,'\n')
+        print ('\n','-'*40)
+        print ('no minosse demon running!')
+        print ('-'*40,'\n')
         sys.exit(0)     
     return
 
@@ -828,7 +828,7 @@ def chainjob(charge):
                 if chain[i] == script[j]:
                     charge=delete(charge,i,varnames)
     return charge
-END
+END 
 
 cat Mheader.py > Msub.py
 cat <<"END">> Msub.py
@@ -883,7 +883,7 @@ subjob=[varnames,
 
 writeallfile(Mdir+file5+id,subjob)
 END
-         
+
 cat Mheader.py > Mstat.py
 cat <<"END">> Mstat.py
 ##------------------------------------------------------------------------------
@@ -917,29 +917,29 @@ charge=readallfile(file2)
 user=findall(charge,'user')
 
 if options.verbose == True :
-	status=findall(charge,'status')
-	if status == []:
-	    print ('  System free: no job queued or running')
+        status=findall(charge,'status')
+        if status == []:
+            print ('  System free: no job queued or running')
         else:
 
-	    for i in range(len(user)):
-	        for j in range(len(charge[0])/len(user)):
-		     print ('%15s' % charge[0][j+(len(charge[0])/len(user))*i],':',charge[1][j+(len(charge[0])/len(user))*i])
+            for i in range(len(user)):
+                for j in range(len(charge[0])/len(user)):
+                     print ('%15s' % charge[0][j+(len(charge[0])/len(user))*i],':',charge[1][j+(len(charge[0])/len(user))*i])
 
 else:
-	status=findall(charge,'status')
-	Ncpu=findall(charge,'Ncpu')
-	RAM=findall(charge,'RAM')
-	priority=findall(charge,'priority')
-	id=findall(charge,'id')
+        status=findall(charge,'status')
+        Ncpu=findall(charge,'Ncpu')
+        RAM=findall(charge,'RAM')
+        priority=findall(charge,'priority')
+        id=findall(charge,'id')
 
-	if status == []:
-	    print ('  System free: no job queued or running')
-	else:
-	    print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
-	    print ('-'*60)
-	    for i in range(len(status)):
-		print ('%15s' % user[i],'%6s' %Ncpu[i],'%8s' % RAM[i],'%7s' % id[i],'%7s' %status[i], '%9s' %priority[i])
+        if status == []:
+            print ('  System free: no job queued or running')
+        else:
+            print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
+            print ('-'*60)
+            for i in range(len(status)):
+                print ('%15s' % user[i],'%6s' %Ncpu[i],'%8s' % RAM[i],'%7s' % id[i],'%7s' %status[i], '%9s' %priority[i])
 print ('-'*60)
 END
 
@@ -993,10 +993,10 @@ deljob=[['script','id','priority','user'],
 writeallfile(Mdir+file8+RND,deljob)
 END
 
-rm Mheader.py
+#rm Mheader.py
 
 cat <<END> minosse
-#! /bin/sh
+#! /bin/bash
 
 #--------------------------------------------------------------------------------
 #This file is part of Minosse.
@@ -1046,7 +1046,6 @@ esac
 END
 
 cat <<"END"> README
-
 This file is part of Minosse.
 
 Minosse is free software: you can redistribute it and/or modify
@@ -1925,49 +1924,7 @@ else
 fi
 
 cat <<END> $instdir/minosse_uninst.sh
-#!/bin/bash
-
-#--------------------------------------------------------------------------------
-#This file is part of Minosse.
-#
-#Minosse is free software: you can redistribute it and/or modify
-#it under the terms of the GNU General Public License as published by
-#the Free Software Foundation, either version 3 of the License, or
-#(at your option) any later version.
-#
-#Minosse is distributed in the hope that it will be useful,
-#but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#GNU General Public License for more details.
-#
-#You should have received a copy of the GNU General Public License
-#along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
-#
-#Minosse version 1.0.0, 6th May 2022
-#---------------------------------------------------------------------------------
-
-if [[ \$USER != 'root' ]]; then
-        echo -e '\nPermission denied, you are not superuser\n'
-        exit
-fi
-
-
-echo -e '\nDo you want really uninstall Minosse que system?[yes/No]'
-echo 'All calculations submitted using Minosse will be stopped immediately'
-read var
-
-if [ \$var = 'Yes' -o \$var = 'Y' -o \$var = 'y' -o \$var = 'yes' ] ; then
-        link=$linkdir
-	run=\$(ps -eo args | grep Minosse.py | grep python | awk '{print(\$2)}')
-	if [[ -n \$run ]]; then
-		minosse stop
-	fi
-	rm -fr $instdir
-	rm \$link/msub \$link/mdel \$link/mstat \$link/minosse \$link/minosse_uninst
-	echo -e '\nMinosse uninstalled\n'
-else
-	exit
-fi
+#minosse_uninst.sh
 END
 
 chmod u+x $instdir/minosse
