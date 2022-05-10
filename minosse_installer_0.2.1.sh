@@ -44,7 +44,7 @@ if [[ $USER != 'root' ]]; then
 fi
 
 run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}' | sed 's/Minosse.py//' )  
-if [ -n $run ]; then
+if [[ -n $run ]]; then
 	echo -e '\nAn older version of Minosse is running'
 	echo -e '\n########## ATTENTION ##########\n'
 	echo 'Do you want to stop and delete it?[yes/No]'

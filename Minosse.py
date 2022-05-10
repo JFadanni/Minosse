@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/" #the current direcotry
+Mdir="Minosse_test/" #the current direcotry
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -74,7 +74,7 @@ subprocesses=[[],[]]
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 writeinitializationmessage()
 status=readallfile(file3)
 status=cleanstatus(status)

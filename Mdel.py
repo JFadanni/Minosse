@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir" #the current direcotry
+Mdir="Minosse_test/" #the current direcotry
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -86,7 +86,7 @@ parser.add_option("-a", "--all",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 
 RND=str(random.randint(1, 1000000))
 

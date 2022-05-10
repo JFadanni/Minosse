@@ -44,7 +44,7 @@ if [[ $USER != 'root' ]]; then
 fi
 
 run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}' | sed 's/Minosse.py//' )  
-if [ -n $run ]; then
+if [[ -n $run ]]; then
 	echo -e '\nAn older version of Minosse is running'
 	echo -e '\n########## ATTENTION ##########\n'
 	echo 'Do you want to stop and delete it?[yes/No]'
@@ -415,6 +415,7 @@ while 1:
     writejob(Mdir,file5,file2)
     ## waiting time
     time.sleep(1)
+
 END
 
 cat Mheader.py > Mutil.py
@@ -828,10 +829,10 @@ def chainjob(charge):
                 if chain[i] == script[j]:
                     charge=delete(charge,i,varnames)
     return charge
-END 
+END
 
 cat Mheader.py > Msub.py
-cat <<"END">> Msub.py
+cat <<"EOF">> Msub.py
 ##------------------------------------------------------------------------------
 ## Imports
 ##------------------------------------------------------------------------------
@@ -882,7 +883,7 @@ subjob=[varnames,
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)
-END
+EOF
 
 cat Mheader.py > Mstat.py
 cat <<"END">> Mstat.py
@@ -1046,6 +1047,7 @@ esac
 END
 
 cat <<"END"> README
+
 This file is part of Minosse.
 
 Minosse is free software: you can redistribute it and/or modify
@@ -1924,7 +1926,49 @@ else
 fi
 
 cat <<END> $instdir/minosse_uninst.sh
-#minosse_uninst.sh
+#!/bin/bash
+
+#--------------------------------------------------------------------------------
+#This file is part of Minosse.
+#
+#Minosse is free software: you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation, either version 3 of the License, or
+#(at your option) any later version.
+#
+#Minosse is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+#
+#You should have received a copy of the GNU General Public License
+#along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
+#
+#Minosse version 1.0.0, 6th May 2022
+#---------------------------------------------------------------------------------
+
+if [[ \$USER != 'root' ]]; then
+        echo -e '\nPermission denied, you are not superuser\n'
+        exit
+fi
+
+
+echo -e '\nDo you want really uninstall Minosse que system?[yes/No]'
+echo 'All calculations submitted using Minosse will be stopped immediately'
+read var
+
+if [ \$var = 'Yes' -o \$var = 'Y' -o \$var = 'y' -o \$var = 'yes' ] ; then
+        link=$linkdir
+	run=\$(ps -eo args | grep Minosse.py | grep python | awk '{print(\$2)}')
+	if [[ -n \$run ]]; then
+		minosse stop
+	fi
+	rm -fr $instdir
+	rm \$link/msub \$link/mdel \$link/mstat \$link/minosse \$link/minosse_uninst
+	echo -e '\nMinosse uninstalled\n'
+else
+	exit
+fi
 END
 
 chmod u+x $instdir/minosse

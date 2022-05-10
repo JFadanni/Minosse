@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/"# the current directory
+Mdir="Minosse_test/"# the current directory
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'

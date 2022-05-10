@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="/" # the current directory 
+Mdir="Minosse_test/" # the current directory 
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -76,7 +76,7 @@ parser.add_option("-v", "--verbose",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 
 print ('Minosse batch system v1.0.0')
 print ('-'*60)

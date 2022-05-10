@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir" #the current direcotry
+Mdir="Minosse_test/" #the current direcotry
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -95,12 +95,12 @@ parser.add_option("-l", "--link",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 
 id=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'i386','que',
+        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'x64','que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)

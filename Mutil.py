@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir" #the current direcotry
+Mdir="Minosse_test/" #the current direcotry
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -97,6 +97,7 @@ def writefatalerror(wrote):
 
 def readallfile(filename):
     """Read an entire mns file and store it in lists"""
+    print(f' sto leggendo il file: {filename}')
     varname=[]
     varvalue=[]
     filecomplete='false'
@@ -124,6 +125,8 @@ def readallfile(filename):
                 element[1]='none'
             varvalue.append(element[1].strip())
     allvar=[varname,varvalue]
+#    for i in range(len(allvar[0])):
+#        print(f'\t{allvar[0][i]}:{allvar[1][i]}')
     return allvar 
 
 ##------------------------------------------------------------------------------
@@ -132,10 +135,12 @@ def readallfile(filename):
 
 def writeallfile(filename,allvar):
     """Write an entire mns file """
+    print(f'sto scrivendo il file: {filename}')
     with open(filename+'.mns','w') as fileout:
         fileout.write('!start'+'\n')
         for i in range(len(allvar[0])):
             fileout.write(str(allvar[0][i])+': '+str(allvar[1][i])+'\n')
+            print(f'\t{str(allvar[0][i])}: {str(allvar[1][i])}')
         fileout.write('!end\n')
     return
 
