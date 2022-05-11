@@ -373,7 +373,7 @@ while 1:
         writemessage('Running job '+script)
         ##pid=os.spawnlp(os.P_NOWAIT, script)    prova
         try:
-            subpro=Popen(["su - "+user+" -c "+script],shell=True)
+            subpro=Popen(["runuser -u"+user+" "+script],shell=True)
             pid=subpro.pid
             subprocesses=makelist(subprocesses,subpro,n)
             writemessage('job pid '+str(pid))
@@ -415,7 +415,6 @@ while 1:
     writejob(Mdir,file5,file2)
     ## waiting time
     time.sleep(1)
-
 END
 
 cat Mheader.py > Mutil.py
@@ -832,7 +831,7 @@ def chainjob(charge):
 END
 
 cat Mheader.py > Msub.py
-cat <<"EOF">> Msub.py
+cat <<"END">> Msub.py
 ##------------------------------------------------------------------------------
 ## Imports
 ##------------------------------------------------------------------------------
@@ -879,11 +878,11 @@ ifrunning()
 id=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'i386','que',
+        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'x86_64','que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)
-EOF
+END
 
 cat Mheader.py > Mstat.py
 cat <<"END">> Mstat.py
@@ -924,8 +923,8 @@ if options.verbose == True :
         else:
 
             for i in range(len(user)):
-                for j in range(len(charge[0])/len(user)):
-                     print ('%15s' % charge[0][j+(len(charge[0])/len(user))*i],':',charge[1][j+(len(charge[0])/len(user))*i])
+                for j in range(int(len(charge[0])/len(user))):
+                     print ('%15s' % charge[0][j+int(len(charge[0])/len(user))*i],':',charge[1][j+int(len(charge[0])/len(user))*i])
 
 else:
         status=findall(charge,'status')
@@ -994,7 +993,7 @@ deljob=[['script','id','priority','user'],
 writeallfile(Mdir+file8+RND,deljob)
 END
 
-#rm Mheader.py
+rm Mheader.py
 
 cat <<END> minosse
 #! /bin/bash

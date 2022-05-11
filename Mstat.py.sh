@@ -35,8 +35,8 @@ if options.verbose == True :
         else:
 
             for i in range(len(user)):
-                for j in range(len(charge[0])/len(user)):
-                     print ('%15s' % charge[0][j+(len(charge[0])/len(user))*i],':',charge[1][j+(len(charge[0])/len(user))*i])
+                for j in range(int(len(charge[0])/len(user))):
+                     print ('%15s' % charge[0][j+int(len(charge[0])/len(user))*i],':',charge[1][j+int(len(charge[0])/len(user))*i])
 
 else:
         status=findall(charge,'status')

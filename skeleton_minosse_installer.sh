@@ -44,7 +44,7 @@ if [[ $USER != 'root' ]]; then
 fi
 
 run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}' | sed 's/Minosse.py//' )  
-if [ -n $run ]; then
+if [[ -n $run ]]; then
 	echo -e '\nAn older version of Minosse is running'
 	echo -e '\n########## ATTENTION ##########\n'
 	echo 'Do you want to stop and delete it?[yes/No]'
@@ -252,13 +252,13 @@ END
 
 cat Mheader.py > Minosse.py
 cat <<"END">> Minosse.py
-#  Minosse.py.sh .shfile
+#  Minosse.py.sh file
 END
 
 cat Mheader.py > Mutil.py
 cat <<"END">> Mutil.py
 #Mutil.py.sh file
-END 
+END
 
 cat Mheader.py > Msub.py
 cat <<"END">> Msub.py
@@ -267,18 +267,18 @@ END
 
 cat Mheader.py > Mstat.py
 cat <<"END">> Mstat.py
-#Mstat.py.sh
+#Mstat.py.sh file
 END
 
 cat Mheader.py > Mdel.py
 cat <<"END">> Mdel.py
-#Mdel.py.sh
+#Mdel.py.sh file
 END
 
 #rm Mheader.py
 
 cat <<END> minosse
-#minosse
+#minosse file
 END
 
 cat <<"END"> README

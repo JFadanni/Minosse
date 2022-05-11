@@ -44,7 +44,7 @@ ifrunning()
 id=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'i386','que',
+        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'x86_64','que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)
