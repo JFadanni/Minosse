@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="Minosse_test/"# the current directory
+Mdir="/data1/jacopo/Minosse_upgrade/Minosse_test/"# the current directory
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'

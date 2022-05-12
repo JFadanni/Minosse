@@ -22,7 +22,7 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
 __date__ = "6th May 2022"
-__version__ = ': 1.0.0 $'
+__version__ = '$Revision: 1.0.0 $'
 __credits__ = """Guido van Rossum, for an excellent programming language."""
 
 ##------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="Minosse_test/" #the current direcotry
+Mdir="$instdir/"
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -95,12 +95,12 @@ parser.add_option("-l", "--link",
 ## Main program
 ##------------------------------------------------------------------------------
 
-#ifrunning()
-
+ifrunning()
+architecture= os.uname()[-1]
 id=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'x86_64','que',
+        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,architecture,'que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)

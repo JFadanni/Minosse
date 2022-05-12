@@ -373,8 +373,11 @@ while 1:
         writemessage('Running job '+script)
         ##pid=os.spawnlp(os.P_NOWAIT, script)    prova
         try:
-            subpro=Popen(["runuser -u"+user+" "+script],shell=True)
+            subpro=Popen(["runuser -u "+user+" "+script],shell=True)
             pid=subpro.pid
+            errors=subpro.errors
+            if(errors):
+                    writewarning('submission error '+str(errors))
             subprocesses=makelist(subprocesses,subpro,n)
             writemessage('job pid '+str(pid))
             charge=replace(charge,pid,'pid',job)
@@ -809,11 +812,16 @@ def ifrunning():
         if path == Mdir+'Minosse.py':
             status='ok'
             a.append('ok')
-    if len(a) != 1 :
+    if len(a) > 1 :
+        print('')
+        print ('-'*40)
+        print ('more than one minosse demon running!')
+        print ('-'*40,'\n')
         sys.exit(0)
     if status == 'down':
         print ('\n','-'*40)
         print ('no minosse demon running!')
+        print('activate minosse with:\t sudo minosse start')
         print ('-'*40,'\n')
         sys.exit(0)     
     return
@@ -876,9 +884,10 @@ parser.add_option("-l", "--link",
 ifrunning()
 
 id=str(random.randint(1, 1000000))
+architecture =  os.uname()[-1]
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,'x86_64','que',
+        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,architecture,'que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)
@@ -1024,6 +1033,7 @@ case "\$1" in
 			echo -e '\nMinosse is already running\n'
 			exit
 		else 
+                        cd $instdir
 			nohup $instdir/Minosse.py > /dev/null 2>&1 &
 			echo 'Starting Minosse ...'
 			sleep 2
@@ -1031,11 +1041,16 @@ case "\$1" in
 		fi
 	;;
 	stop)
-		sed s/up/stop/ $instdir/conf.mns > $instdir/1
-		mv $instdir/1 $instdir/conf.mns
-		echo 'Stopping Minosse ...' 
-		sleep 2
-		echo 'Minosse demon stopped'
+		run=\$(ps -eo args | grep Minosse.py | grep python)
+		if [[ -n \$run ]]; then
+			sed s/up/stop/ $instdir/conf.mns > $instdir/1
+			mv $instdir/1 $instdir/conf.mns
+			echo 'Stopping Minosse ...' 
+			sleep 2
+			echo 'Minosse demon stopped'
+		else 
+			echo -e '\n no Minosse demon running\n'
+		fi
 	;;
 	*)
 		echo -e "\nUsage: minosse start/stop"

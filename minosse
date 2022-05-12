@@ -26,6 +26,7 @@ case "\$1" in
 			echo -e '\nMinosse is already running\n'
 			exit
 		else 
+			cd $instdir
 			nohup $instdir/Minosse.py > /dev/null 2>&1 &
 			echo 'Starting Minosse ...'
 			sleep 2
@@ -33,11 +34,16 @@ case "\$1" in
 		fi
 	;;
 	stop)
-		sed s/up/stop/ $instdir/conf.mns > $instdir/1
-		mv $instdir/1 $instdir/conf.mns
-		echo 'Stopping Minosse ...' 
-		sleep 2
-		echo 'Minosse demon stopped'
+		run=\$(ps -eo args | grep Minosse.py | grep python)
+		if [[ -n \$run ]]; then
+			sed s/up/stop/ $instdir/conf.mns > $instdir/1
+		        mv $instdir/1 $instdir/conf.mns
+		        echo 'Stopping Minosse ...' 
+		        sleep 2
+		        echo 'Minosse demon stopped'
+		else
+			echo -e '\nNo minosse demon running\n'
+		fi
 	;;
 	*)
 		echo -e "\nUsage: minosse start/stop"

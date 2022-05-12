@@ -64,8 +64,11 @@ while 1:
         writemessage('Running job '+script)
         ##pid=os.spawnlp(os.P_NOWAIT, script)    prova
         try:
-            subpro=Popen(["runuser -u"+user+" "+script],shell=True)
+            subpro=Popen(["runuser -u "+user+" "+script],shell=True)
             pid=subpro.pid
+#            errors=subpro.errors
+#            if(errors):
+#                    writewarning('submission error '+str(errors))
             subprocesses=makelist(subprocesses,subpro,n)
             writemessage('job pid '+str(pid))
             charge=replace(charge,pid,'pid',job)

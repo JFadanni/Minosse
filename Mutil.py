@@ -22,7 +22,7 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
 __date__ = "6th May 2022"
-__version__ = ': 1.0.0 $'
+__version__ = '$Revision: 1.0.0 $'
 __credits__ = """Guido van Rossum, for an excellent programming language."""
 
 ##------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="Minosse_test/" #the current direcotry
+Mdir="$instdir/"
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -444,11 +444,17 @@ def ifrunning():
         if path == Mdir+'Minosse.py':
             status='ok'
             a.append('ok')
-    if len(a) != 1 :
+    if len(a) > 1 :
+        print('')
+        print ('-'*40)
+        print ('more than one minosse demon running!')
+        print ('-'*40,'\n')
         sys.exit(0)
     if status == 'down':
-        print ('\n','-'*40)
+        print('')
+        print ('-'*40)
         print ('no minosse demon running!')
+        print('activate minosse with:\t sudo minosse start')
         print ('-'*40,'\n')
         sys.exit(0)     
     return

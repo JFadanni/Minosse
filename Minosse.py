@@ -22,7 +22,7 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
 __date__ = "6th May 2022"
-__version__ = ': 1.0.0 $'
+__version__ = '$Revision: 1.0.0 $'
 __credits__ = """Guido van Rossum, for an excellent programming language."""
 
 ##------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="Minosse_test/" #the current direcotry
+Mdir="$instdir/"
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -74,7 +74,7 @@ subprocesses=[[],[]]
 ## Main program
 ##------------------------------------------------------------------------------
 
-#ifrunning()
+ifrunning()
 writeinitializationmessage()
 status=readallfile(file3)
 status=cleanstatus(status)
@@ -120,8 +120,11 @@ while 1:
         writemessage('Running job '+script)
         ##pid=os.spawnlp(os.P_NOWAIT, script)    prova
         try:
-            subpro=Popen(["runuser -u"+user+" "+script],shell=True)
+            subpro=Popen(["runuser -u "+user+" "+script],shell=True)
             pid=subpro.pid
+#            errors=subpro.errors
+#            if(errors):
+#                    writewarning('submission error '+str(errors))
             subprocesses=makelist(subprocesses,subpro,n)
             writemessage('job pid '+str(pid))
             charge=replace(charge,pid,'pid',job)

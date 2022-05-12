@@ -388,11 +388,17 @@ def ifrunning():
         if path == Mdir+'Minosse.py':
             status='ok'
             a.append('ok')
-    if len(a) != 1 :
+    if len(a) > 1 :
+        print('')
+        print ('-'*40)
+        print ('more than one minosse demon running!')
+        print ('-'*40,'\n')
         sys.exit(0)
     if status == 'down':
-        print ('\n','-'*40)
+        print('')
+        print ('-'*40)
         print ('no minosse demon running!')
+        print('activate minosse with:\t sudo minosse start')
         print ('-'*40,'\n')
         sys.exit(0)     
     return

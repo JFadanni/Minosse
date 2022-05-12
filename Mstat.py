@@ -22,7 +22,7 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
 __date__ = "6th May 2022"
-__version__ = ': 1.0.0 $'
+__version__ = '$Revision: 1.0.0 $'
 __credits__ = """Guido van Rossum, for an excellent programming language."""
 
 ##------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="Minosse_test/" # the current directory 
+Mdir="$instdir/"
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -76,7 +76,7 @@ parser.add_option("-v", "--verbose",
 ## Main program
 ##------------------------------------------------------------------------------
 
-#ifrunning()
+ifrunning()
 
 print ('Minosse batch system v1.0.0')
 print ('-'*60)
