@@ -63,6 +63,87 @@ import sys
 import time
 from   signal import SIGTERM 
 
+
+##-------------------------------------------------------------------------------
+## CLASSES 
+##------------------------------------------------------------------------------
+class server_status:
+     def __init__(self,mode,hostname, HDtype,architecture,status):
+         self.mode = mode
+         self.hostname = hostname
+         self.HDtype = HDtype
+         self.architecture = architecture
+         self.status = status
+         self.Ncpu = 0 
+         self.priority = 0
+         self.RAM = 0
+         self.HDmemory = 0
+
+     def update_Ncpu(self,new_Ncpu):
+         self.Ncpu = new_Ncpu
+
+     def update_ram(self,new_RAM):
+         self.RAM = new_RAM
+
+     def update_priority(self,new_priority):
+         self.priority = new_priority
+
+     def update_HDmemory(self,new_HDmemory):
+         self.HDmemory = new_HDmemory
+
+     def toggle_status(self):
+         status = self.status
+         if status == 'up':
+             self.status = 'down'
+         elif status == 'down':
+             self.status = 'up'
+         else:
+             self.status = 'down' 
+
+     def get_server_status(self):
+         status = {}
+         status['mode'] = self.mode
+         status['hostname'] = self.hostname
+         status['HDtype'] = self.HDtype
+         status['architecture'] = self.architecture
+         status['status'] = self.status
+         status['Ncpu'] = self.Ncpu
+         status['priority'] = self.priority
+         status['RAM'] = self.RAM
+         status['HDmemory'] = self.HDmemory
+         return status
+        
+class job:
+    def __init__(self,ID,user,script,priority,Ncpu,RAM,Njob,chain,subtime):
+       self.id = ID
+       self.pid = None
+       self.user = user
+       self.script = script
+       self.priority = priority
+       self.Ncpu = Ncpu
+       self.RAM = RAM
+       self.Njob = Njob
+       self.chain = chain
+       self.status='que'
+       self.subtime = subtime
+       self.runtime = ''
+
+    def get_job_info(self):
+       job_info = {}
+       job_info['id'] = self.id
+       job_info['pid'] = self.pid
+       job_info['user'] = self.user
+       job_info['script'] = self.script
+       job_info['priority'] = self.priority
+       job_info['Ncpu'] = self.Ncpu
+       job_info['RAM'] = self.RAM
+       job_info['Njob'] = self.Njob
+       job_info['chain'] = self.chain
+       job_info['status'] = self.status
+       job_info['subtime'] = self.subtime
+       job_info['runtime'] = self.runtime
+       return job_info
+
 ##------------------------------------------------------------------------------
 ## write messages
 ##------------------------------------------------------------------------------
