@@ -144,6 +144,31 @@ class job:
        job_info['runtime'] = self.runtime
        return job_info
 
+    def apply_defaults(self, default_values):
+        self.priority = default_values['priority']
+        self.Ncpu = default_values['Ncpu']
+        self.RAM = default_values['RAM']
+
+    def set_pid(self,pid):
+        self.pid = pid 
+
+    def start_job(self):
+        #mettere qui tutta la parte relativa alla sottomissione del job
+        user = self.user
+        script = self.script
+        try:
+            subpro=Popen(["runuser -u "+user+" "+script],shell=True)
+            self.pid = subpro.pid
+            self.status = 'running'
+        except:
+            writewarning(' Something wrong in the '+script+' script')
+            writewarning(' Job aborted')
+            self.status = 'aborted'
+            
+    def kill_job(self,signal):
+        #mettere qui i comandi per killare il job
+
+
 ##------------------------------------------------------------------------------
 ## write messages
 ##------------------------------------------------------------------------------
