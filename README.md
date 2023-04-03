@@ -14,7 +14,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
-Minosse version 1.0.0, 6th May 2022
+# **Minosse version 1.0.0, 6th May 2022**
 --------------------------------------------------------------------------------
 
 In this file you can find almost everything you need to install and run Minosse
