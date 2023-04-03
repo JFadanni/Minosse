@@ -1,5 +1,5 @@
 
-##This file is part of Minosse.##
+<b>This file is part of Minosse.</b>
 
 Minosse is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
