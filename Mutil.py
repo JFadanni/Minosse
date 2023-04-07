@@ -68,50 +68,53 @@ from   signal import SIGTERM
 ## CLASSES 
 ##------------------------------------------------------------------------------
 class server_status:
-     def __init__(self,mode,hostname, HDtype,architecture,status):
-         self.mode = mode
-         self.hostname = hostname
-         self.HDtype = HDtype
-         self.architecture = architecture
-         self.status = status
-         self.Ncpu = 0 
-         self.priority = 0
-         self.RAM = 0
-         self.HDmemory = 0
+    def __init__(self,mode,hostname, HDtype,architecture,status):
+        self.mode = mode
+        self.hostname = hostname
+        self.HDtype = HDtype
+        self.architecture = architecture
+        self.status = status
+        self.Ncpu = 0 
+        self.priority = 0
+        self.RAM = 0
+        self.HDmemory = 0
 
-     def update_Ncpu(self,new_Ncpu):
-         self.Ncpu = new_Ncpu
+    def update_Ncpu(self,new_Ncpu):
+        self.Ncpu = new_Ncpu
 
-     def update_ram(self,new_RAM):
-         self.RAM = new_RAM
+    def update_ram(self,new_RAM):
+        self.RAM = new_RAM
 
-     def update_priority(self,new_priority):
-         self.priority = new_priority
+    def update_priority(self,new_priority):
+        self.priority = new_priority
 
-     def update_HDmemory(self,new_HDmemory):
-         self.HDmemory = new_HDmemory
+    def update_HDmemory(self,new_HDmemory):
+        self.HDmemory = new_HDmemory
 
-     def toggle_status(self):
-         status = self.status
-         if status == 'up':
-             self.status = 'down'
-         elif status == 'down':
-             self.status = 'up'
-         else:
-             self.status = 'down' 
+    def toggle_status(self):
+        status = self.status
+        if status == 'up':
+            self.status = 'down'
+        elif status == 'down':
+            self.status = 'up'
+        else:
+            self.status = 'down' 
 
-     def get_server_status(self):
-         status = {}
-         status['mode'] = self.mode
-         status['hostname'] = self.hostname
-         status['HDtype'] = self.HDtype
-         status['architecture'] = self.architecture
-         status['status'] = self.status
-         status['Ncpu'] = self.Ncpu
-         status['priority'] = self.priority
-         status['RAM'] = self.RAM
-         status['HDmemory'] = self.HDmemory
-         return status
+    def get_server_status(self):
+        status = {}
+        status['mode'] = self.mode
+        status['hostname'] = self.hostname
+        status['HDtype'] = self.HDtype
+        status['architecture'] = self.architecture
+        status['status'] = self.status
+        status['Ncpu'] = self.Ncpu
+        status['priority'] = self.priority
+        status['RAM'] = self.RAM
+        status['HDmemory'] = self.HDmemory
+        return status
+
+    def __repr__(self):
+        return f"{self.hostname}: {self.get_server_status()}"
         
 class job:
     def __init__(self,ID,user,script,priority,Ncpu,RAM,Njob,chain,subtime):
@@ -144,6 +147,21 @@ class job:
        job_info['runtime'] = self.runtime
        return job_info
 
+    def __repr__(self):
+        return f"job {self.id}: {self.get_job_info()}" 
+
+    def __str__(self):
+        if self.status == 'que':
+            return f"job: {self.id}: \npid: {self.pid}\nuser: {self.user}\nscript: {self.script}\nNcpu: {self.Ncpu}\n \
+                RAM: {self.RAM}\nNjob: {self.Njob}\nchain: {self.chain}\nstatus: {self.status}\n \
+                    subtime: {self.subtime}"
+        else:
+            return f"job: {self.id}: \npid: {self.pid}\nuser: {self.user}\nscript: {self.script}\nNcpu: {self.Ncpu}\n \
+                RAM: {self.RAM}\nNjob: {self.Njob}\nchain: {self.chain}\nstatus: {self.status}\n \
+                    subtime: {self.subtime}\nruntime:{self.runtime}"
+
+
+
     def apply_defaults(self, default_values):
         self.priority = default_values['priority']
         self.Ncpu = default_values['Ncpu']
@@ -166,6 +184,7 @@ class job:
             self.status = 'aborted'
             
     def kill_job(self,signal):
+        pass
         #mettere qui i comandi per killare il job
 
 
@@ -196,6 +215,34 @@ def writefatalerror(wrote):
     writemessage('--- MINOSSE STOPS ABNORMALLY ---')
     sys.exit(0)
     return
+
+
+##------------------------------------------------------------------------------
+##   Test for submission
+##------------------------------------------------------------------------------
+
+def check_resources(needed,available):
+    """ check wether the needed resources are available """
+    if needed > available:
+        return False
+    else:
+        return True
+
+def test_algebric_absolute(job,status,realvalues):
+    """test for the matching between available and needed resources """
+    for r_need, r_used, r_name in zip((job.RAM,job.Ncpu,job.HDmemory),(status.RAM,status.Ncpu,status.HDmemory),('RAM','Ncpu','HDmemory')):
+        test = check_resources(r_need+r_used,resources[r_name])
+        if not test:
+            return False
+
+def test_algebric_user(job,user_stuatus,user_resources):
+    """test for the matching between available and needed resources for the submitting user """
+    for r_need, r_used, r_name in zip((job.RAM,job.Ncpu,job.HDmemory),(user_status.RAM,user_status.Ncpu,user_status.HDmemory),('RAM','Ncpu','HDmemory')):
+        test = check_resources(r_need+r_used,user_resources[r_name])
+        if not test:
+            return False
+
+
 
 ##------------------------------------------------------------------------------
 ## read files
