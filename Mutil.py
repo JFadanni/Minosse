@@ -283,7 +283,7 @@ def readallfile(filename):
 ## write files
 ##------------------------------------------------------------------------------
 
-def writeallfile(filename,allvar):
+def writeallfile_list(filename,allvar):
     """Write an entire mns file """
     with open(filename+'.mns','w') as fileout:
         fileout.write('!start'+'\n')
@@ -292,6 +292,13 @@ def writeallfile(filename,allvar):
         fileout.write('!end\n')
     return
 
+def writeallfile_obj(filename,obj):
+    """Write an entire mns file """
+    with open(filename+'.mns','w') as fileout:
+        fileout.write('!start'+'\n')
+        fileout.write(str(obj)+'\n')
+        fileout.write('!end\n')
+    return
 ##------------------------------------------------------------------------------
 ## find or find and replace
 ##------------------------------------------------------------------------------
