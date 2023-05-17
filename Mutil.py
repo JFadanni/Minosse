@@ -97,8 +97,7 @@ def writefatalerror(wrote):
 
 def readallfile(filename):
     """Read an entire mns file and store it in lists"""
-    varname=[]
-    varvalue=[]
+    allvar = {}
     filecomplete='false'
     ## impose the completeness of the file
     while (filecomplete=='false'):     
@@ -119,11 +118,14 @@ def readallfile(filename):
             pass
         else:
             element=output[i].split(':')
-            varname.append(element[0].strip())
+            varname = element[0].strip()
             if element[1].strip() == '':
                 element[1]='none'
-            varvalue.append(element[1].strip())
-    allvar=[varname,varvalue]
+            varvalue = element[1].strip()
+        if varname in allvar.keys():
+            allvar[varname].append(varvalue)
+        else:
+            allvar[varname] = [varvalue]
     return allvar 
 
 ##------------------------------------------------------------------------------
@@ -134,8 +136,9 @@ def writeallfile(filename,allvar):
     """Write an entire mns file """
     with open(filename+'.mns','w') as fileout:
         fileout.write('!start'+'\n')
-        for i in range(len(allvar[0])):
-            fileout.write(str(allvar[0][i])+': '+str(allvar[1][i])+'\n')
+        for varkey in allvar.keys():
+            for varval in allvar[varkey]:
+                fileout.write(f'{varkey}: {varval}')
         fileout.write('!end\n')
     return
 
@@ -145,19 +148,11 @@ def writeallfile(filename,allvar):
 
 def findall(allvar,findvarname):
     """find in a varialbe in a list"""
-    varvalue=[]
-    for i in range(len(allvar[0])):
-        if allvar[0][i] == findvarname or allvar[0][i] == 'none':
-            varvalue.append(allvar[1][i])
-    return varvalue
+    return allvar[findvarname]
 
 def replace(allvar,value,varname,index):
     """change the value of a variable in a specified position"""
-    cou=[]
-    for i in range(len(allvar[0])):
-        if allvar[0][i] == varname :
-            cou.append(i)
-    allvar[1][cou[index]]=value
+    allvar[varname][index]=value
     return allvar
 
 ##------------------------------------------------------------------------------
@@ -167,9 +162,11 @@ def replace(allvar,value,varname,index):
 def applydefaults(allvar1,allvar2,varname):
     """Apply the default settings content in the default.mns file"""
     def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname and allvar1[1][i] == 'none' :
-            allvar1[1][i]=def1[0]
+    for varname in allvar1.keys():
+        for i in range(len(allvar1[varname])):
+            if allvar1[varname][i] == 'none':
+                allvar1[varname][i] = allvar2[varname]
+
     return allvar1
 
 def difference(allvar1,allvar2,varname):
@@ -182,7 +179,7 @@ def difference(allvar1,allvar2,varname):
     return diffvar
 
 def testalgebric(allvar1,allvar2,allvar3,varname):
-    """Make a test for numeric varible if allvar1-allvar3 <= allvar3"""
+    """Make a test for numeric varible if allvar1-allvar2 <= allvar3"""
     free=[]
     index1=[]
     index2=[]
