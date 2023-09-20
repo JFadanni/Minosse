@@ -29,20 +29,21 @@ In order to change them you need to left the default during the installation,
 and then edit the nodes.mns file and  change manually the values (if you 
 can avoid, don't do it!).
 Here an example of the nodes.mns:
-!start
-NODE: none		(number of node, not yet used)
-hostname: dyn12		(name of the computer)
-Ncpu: 4			(n° of cores)
-RAM: 16138		(amount of ram memory MB)
-HDtype: eide		(HD type)
-HDmemory: 1846		(dimension of the working partition GB)
-architecture: x86_64	(architecture type)
-status: up		(status of the node, not yet used)
-priority: 50		(priority of the node, not yet used)
+
+>!start   
+NODE: none	&emsp; 	(number of node, not yet used)  
+hostname: dyn12	 &emsp;      (name of the computer)  
+Ncpu: 4		&emsp;&emsp;&emsp;&emsp;      (n° of cores)  
+RAM: 16138		&emsp;(amount of ram memory MB)  
+HDtype: eide		&emsp;(HD type)  
+HDmemory: 1846		&emsp;(dimension of the working partition GB)  
+architecture: x86_64	&emsp;(architecture type)  
+status: up		&emsp;(status of the node, not yet used)  
+priority: 50		&emsp;(priority of the node, not yet used)  
 !end
 
-You can change each one of these values and then start Minosse.
-ATTENTION do not specify values bigger than the physical values of the machine.
+You can change each one of these values and then start Minosse.  
+> **ATTENTION** do not specify values bigger than the physical values of the machine.
 
 If you find problems installing or running this program please mail me
 (piero.altoe@gmail.com), I will be happy to find a solution to your problem.
