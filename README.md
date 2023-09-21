@@ -9,7 +9,7 @@ the Free Software Foundation, either version 3 of the License, or
 Minosse is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+[GNU General Public License](https://www.gnu.org/licenses/gpl-3.0.html) for more details.
 
 You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
@@ -23,7 +23,7 @@ This file is generated during installation step or can be downloaded from the gi
 ## How to install:
 In order to install Minosse you need to have python 3 installed on your machine.
 To install it you can symply run the installation script as root:
->$ ``` sudo ./minosse_installer_1.0.0.sh```
+$ ``` sudo ./minosse_installer_1.0.0.sh```
 
 and answer the questions.
 
@@ -68,33 +68,32 @@ one of these two.
 
 
 ## How to use:
->During the installation, the script asks you in which directory you want 
+During the installation, the script asks you in which directory you want 
 to create the links. If this directory is not in your $PATH 
 (like: /usr/local/bin or /urs/bin/) you cannot use the minosse commands simply 
 typing the name of the command, but you need to specify the entire the path.
 - Start/stop the demon (only root can do it):
  
-  > ```minosse start/stop```
+   ```minosse start/stop```
 
 - Uninstall (only root can do it):
 
-  > ```minosse_uninst```
+  ```minosse_uninst```
 
 The flag `-h` gives you the usage for all the next commands.
 
 - Checking the queue status:
 
-  > ```mstat or mstat -v (verbose)```
+   ```mstat or mstat -v (verbose)```
 
 - Submit a job:
 
-  > ```msub -f "path/scriptname" -c "n° of cpu" -m "ram memory"```
+   ```msub -f "path/scriptname" -c "n° of cpu" -m "ram memory"```
 
 - delete a job:
 
-  > ```mdel -j "job id" or -s "path/scriptname"```
+   ```mdel -j "job id" or -s "path/scriptname"```
 
-***
 ***
 # Gaussian submitting script
 Here an example of a Gaussian (Gaussian16) submitting script using Minosse:
