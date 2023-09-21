@@ -22,7 +22,7 @@ This file is generated during installation step or can be downloaded from the gi
 
 ## How to install:
 In order to install Minosse you need to have python 3 installed on your machine.
-To install it you can symply run the installation script as root:
+To install it you can symply run the installation script as root:  
 $ ``` sudo ./minosse_installer_1.0.0.sh```
 
 and answer the questions.
