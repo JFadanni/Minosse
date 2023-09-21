@@ -23,7 +23,7 @@ This file is generated during installation step or can be downloaded from the gi
 ## How to install:
 In order to install Minosse you need to have python 3 installed on your machine.
 To install it you can symply run the installation script as root:
-> `$ sudo ./minosse_installer_1.0.0.sh`
+>$ ``` sudo ./minosse_installer_1.0.0.sh```
 
 and answer the questions.
 
@@ -74,25 +74,25 @@ to create the links. If this directory is not in your $PATH
 typing the name of the command, but you need to specify the entire the path.
 - Start/stop the demon (only root can do it):
  
-  > `minosse start/stop`
+  > ```minosse start/stop```
 
 - Uninstall (only root can do it):
 
-  > `minosse_uninst`
+  > ```minosse_uninst```
 
 The flag `-h` gives you the usage for all the next commands.
 
 - Checking the queue status:
 
-  > `mstat or mstat -v (verbose)`
+  > ```mstat or mstat -v (verbose)```
 
 - Submit a job:
 
-  > `msub -f "path/scriptname" -c "n° of cpu" -m "ram memory"`
+  > ```msub -f "path/scriptname" -c "n° of cpu" -m "ram memory"```
 
 - delete a job:
 
-  > `mdel -j "job id" or -s "path/scriptname"`
+  > ```mdel -j "job id" or -s "path/scriptname"```
 
 ***
 ***
