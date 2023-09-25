@@ -52,8 +52,7 @@ priority: 50            (priority of the node, not yet used)
 You can change each one of these values and then start Minosse.  
  > ***ATTENTION*** *do not specify values bigger than the physical values of the machine.*
 
-If you find problems installing or running this program please mail me
-(piero.altoe@gmail.com), I will be happy to find a solution to your problem.
+If you find problems installing or running this program please contact me using the [github page](https://github.com/JFadanni/Minosse), I will be happy to find a solution to your problem.
 
 This release of Minosse works only for single workstation/server with N° SHM
 processors.

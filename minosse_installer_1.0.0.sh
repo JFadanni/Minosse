@@ -252,6 +252,7 @@ cat <<END> Mheader.py
 """ Minosse a python based batch system
 
 Copyright 2007,2008 Piero Altoè
+Copyright 2022, 2024 Jacopo Fadanni
 
 This file is part of Minosse.
 
@@ -269,10 +270,10 @@ You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
+__author__ = "Jacopo Fadanni"
 __date__ = "6th May 2022"
 __version__ = '$Revision: 1.0.0 $'
-__credits__ = """Guido van Rossum, for an excellent programming language."""
+__credits__ = """Guido van Rossum, for an excellent programming language. Piero Altoè, for the original Minosse."""
 
 ##------------------------------------------------------------------------------
 ## Common Imports
