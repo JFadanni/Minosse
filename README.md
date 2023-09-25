@@ -1,5 +1,9 @@
 
-# **Minosse** version 1.0.0, 6th May 2022
+# **Minosse** version 0.2.1
+
+Minosse 0.2.1 is the original version of Minosse developed by Piero Altoè in Python2. 
+This version of Minosse is not compatible with Python3 and its use is deprecated.  
+It is pubblicly available only for completness reasons. For an up to date version of Minosse please use the available version in the stable branch of the github repository.
 
 Minosse is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,12 +22,12 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 In this file you can find almost everything you need to install and run Minosse
 batch system (it is a tiny program!).
 
-This file is generated during installation step or can be downloaded from the git repository.
+This file is generated during installation step or can be downloaded from the github repository.
 
 ## How to install:
-In order to install Minosse you need to have python 3 installed on your machine.
+In order to install Minosse you need to have python 2.7 installed on your machine.
 To install it you can symply run the installation script as root:  
-$ ``` sudo ./minosse_installer_1.0.0.sh```
+$ ``` sudo ./minosse_installer_0.2.1.sh```
 
 and answer the questions.
 
@@ -96,13 +100,13 @@ The flag `-h` gives you the usage for all the next commands.
 
 ***
 # Gaussian submitting script
-Here an example of a Gaussian (Gaussian16) submitting script using Minosse:
+Here an example of a Gaussian (Gaussian03) submitting script using Minosse:
 ```sh
 #!/bin/bash
 
 # to be sure is used correctly 
 if [ -z $3 ]; then
-   echo - '\nUsage: mg16 inputfile ncpu memory'
+   echo - '\nUsage: mg03 inputfile ncpu memory'
    echo -e '\n  Submit a Gaussian job to the Minosse queue system'
    exit
 fi
@@ -152,7 +156,7 @@ PTH=$PWD
 echo ' ' >> $job.com_nqs
 
 # run gaussian
-g16 < $job.com_nqs > $PTH/$job.log 2>&1
+g03 < $job.com_nqs > $PTH/$job.log 2>&1
 
 ## compress the checkpoint 
 if [ -f $job.chk ]; then
