@@ -1,0 +1,24 @@
+""" Minosse a Python-based batch system
+
+Copyright 2022,2024 Jacopo Fadanni
+
+This file is part of Minosse.
+
+Minosse is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Minosse is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+__author__ = "Jacopo Fadanni"
+__date__ = "26th Sep 2023"
+__version__ = '$Revision: 1.0.0 $'
+__credits__ = """Piero Altoè for a nice queue manager."""
