@@ -50,7 +50,7 @@ mess=Mdir+'messages'
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDtype','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
