@@ -42,6 +42,18 @@ if [[ $USER != 'root' ]]; then
 	fatal
 fi
 
+if [[ -d Tmp ]]; then
+	if [[ -z $(ls -A Tmp) ]]; then
+		echo " directory Tmp is empty"
+		echo " run minosse_config.sh and try again"
+		fatal
+	fi
+else
+		echo "directory Tmp does not exist"
+		echo " run minosse_config.sh and try again"
+		fatal
+fi 
+
 echo 'insert the Minosse installation directory [/usr/local/Minosse]'
 read instdir
 if [[ -z $instdir ]]; then
@@ -84,19 +96,19 @@ cp README.md $instdir
 mv Tmp/conf.mns $instdir
 mv Tmp/charge.mns $instdir
 mv Tmp/delete.mns $instdir
-mv Tmp/default.mns $instdir
+mv Tmp/defaults.mns $instdir
 mv Tmp/nodes.mns $instdir
 mv Tmp/status.mns $instdir
 
 rm -r Tmp
 
-sed s/\$instdir/$instdir/g Utils/Minosse.py > $instdir/Minosse.py
-sed s/\$instdir/$instdir/g Utils/Mstat.py > $instdir/Mstat.py
-sed s/\$instdir/$instdir/g Utils/Msub.py > $instdir/Msub.py
-sed s/\$instdir/$instdir/g Utils/Mdel.py > $instdir/Mdel.py
-sed s/\$instdir/$instdir/g Utils/Mutil.py > $instdir/Mutil.py
-sed s/\$instdir/$instdir/g minosse > $instdir/minosse
-sed s/\$instdir/$instdir/g minosse_uninst.sh > $instdir/minosse_uninst.sh
+sed -e "s|\$instdir|$instdir|g" Utils/Minosse.py > $instdir/Minosse.py
+sed -e "s|\$instdir|$instdir|g" Utils/Mstat.py > $instdir/Mstat.py
+sed -e "s|\$instdir|$instdir|g" Utils/Msub.py > $instdir/Msub.py
+sed -e "s|\$instdir|$instdir|g" Utils/Mdel.py > $instdir/Mdel.py
+sed -e "s|\$instdir|$instdir|g" Utils/Mutil.py > $instdir/Mutil.py
+sed -e "s|\$instdir|$instdir|g" minosse > $instdir/minosse
+sed -e "s|\$instdir|$instdir|g" minosse_uninst.sh > $instdir/minosse_uninst.sh
 
 chmod u+x $instdir/minosse
 chmod u+x $instdir/Minosse.py
@@ -105,6 +117,7 @@ chmod a+x $instdir/Msub.py
 chmod a+x $instdir/Mdel.py
 chmod a+x $instdir/Mstat.py
 
+cd $instdir
 ln -fs $instdir/minosse minosse
 ln -fs $instdir/Msub.py msub
 ln -fs $instdir/Mdel.py mdel
