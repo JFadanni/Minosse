@@ -17,7 +17,7 @@
  You should have received a copy of the GNU General Public License
  along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
  
- Minosse version 
+ Minosse version 1.1.0
  ---------------------------------------------------------'
 
  function fatal { 
