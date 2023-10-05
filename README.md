@@ -1,5 +1,5 @@
 
-# **Minosse** version 1.0.0, 6th May 2022
+# **Minosse** version 1.1.0, 5th Oct 2023
 
 Minosse is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,11 +21,15 @@ batch system (it is a tiny program!).
 This file is generated during installation step or can be downloaded from the git repository.
 
 ## How to install:
-In order to install Minosse you need to have python 3 installed on your machine.
-To install it you can symply run the installation script as root:  
-$ ``` sudo ./minosse_installer_1.0.0.sh```
+Minosse needs Python 3 installed on your machine. No special packages are needed.
 
-and answer the questions.
+To install Minosse two steps are needed:
+1. Run the configuration script ```minosse_config.sh``` to setup the working environment:  
+$ ``` ./minosse_config.sh```
+
+2. Run the installer script ```minosse_inst.sh``` as root to copy Minosse files in the installation directory:  
+$ ```sudo ./minosse_inst.sh```
+
 
 >Minosse installer does not support non default values for the machine 
 specification.  
@@ -52,8 +56,7 @@ priority: 50            (priority of the node, not yet used)
 You can change each one of these values and then start Minosse.  
  > ***ATTENTION*** *do not specify values bigger than the physical values of the machine.*
 
-If you find problems installing or running this program please mail me
-(piero.altoe@gmail.com), I will be happy to find a solution to your problem.
+If you find problems installing or running this program please use the [Issues section on GitHub](https://github.com/JFadanni/Minosse/issues), I will be happy to find a solution to your problem.
 
 This release of Minosse works only for single workstation/server with N° SHM
 processors.
