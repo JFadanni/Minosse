@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-""" Minosse a python based batch system
 
-Copyright 2007,2008 Piero Altoè
+""" Minosse a Python-based batch system
+
+Copyright 2022,2024 Jacopo Fadanni
 
 This file is part of Minosse.
 
@@ -20,11 +21,10 @@ You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__author__ = "Piero Altoè <piero.altoe@gmail.com> Jacopo Fadanni"
-__date__ = "6th May 2022"
-__version__ = '$Revision: 1.0.0 $'
-__credits__ = """Guido van Rossum, for an excellent programming language."""
-
+__author__ = "Jacopo Fadanni"
+__date__ = "5th Oct 2023"
+__version__ = '$Revision: 1.1.0 $'
+__credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 ## Common Imports
 ##------------------------------------------------------------------------------
