@@ -35,7 +35,8 @@ from    Mutil      import *
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/"
+#Mdir="$instdir/"
+Mdir = "./Minosse_mns/" # for developing only
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -51,7 +52,7 @@ mess=Mdir+'messages'
 ##------------------------------------------------------------------------------
 
 varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
+          ,'priority','pid','Njob','script','user','chain'
           ,'subtime','runtime']
 
 ##------------------------------------------------------------------------------
@@ -68,7 +69,7 @@ import time
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version="%prog 1.0.0")
+parser = OptionParser(usage="%prog", version="%prog 1.1.0") # fix version
 
 parser.add_option("-c", "--cpus",
                   action="store", dest="cpus", default="1", type="int", 
@@ -95,12 +96,17 @@ parser.add_option("-l", "--link",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning() #exclude checks while testing "Msub.py"
 architecture= os.uname()[-1]
 id=str(random.randint(1, 1000000))
 
-subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,architecture,'que',
-         options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
+varvalues = [socket.gethostname(),options.cpus,options.memory,options.HD,architecture,'que',
+         options.priority,'','',options.file ,getpass.getuser(),options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']
+
+job_prop = {}
+for vname, vval in zip(varnames, varvalues):
+    job_prop[vname] = vval
+
+subjob = {id: job_prop}
 
 writeallfile(Mdir+file5+id,subjob)

@@ -109,62 +109,64 @@ cd Tmp
 echo -e '\nwrite Minosse files:'
 echo 'charge.mns'
 cat <<END> charge.mns
-!start
-!end
+{
+
+}
 END
 
 echo 'conf.mns'
 cat <<END> conf.mns
-!start
-status: up
-!end
+{
+  "status": "down"
+}
 END
 
 echo 'delete.mns'
 cat <<END> delete.mns
-!start
-!end
+{
+
+}
 END
 
 echo 'node.mns'
 cat <<END> nodes.mns
-!start
-NODE: none
-hostname: $HOSTNAME
-Ncpu: $cpus 
-RAM: $totmem
-HDmemory: $partition
-architecture: $HOSTTYPE
-status: up
-priority: $prior
-!end
+{
+  "NODE": "none",
+  "hostname": "$HOSTNAME",
+  "Ncpu": $cpus ,
+  "RAM": $totmem,
+  "HDmemory": $partition,
+  "architecture": "$HOSTTYPE",
+  "status": "up",
+  "priority": $prior
+}
 END
 
 echo 'defaults.mns'
 cat <<END> defaults.mns
-!start
-hostname: $HOSTNAME
-Ncpu: $Dcpus
-RAM: $Dmemory
-HDmemory: $DHD
-architecture: $HOSTTYPE
-status: que
-priority: $Dprior
-!end
+{
+  "hostname": "$HOSTNAME",
+  "Ncpu": 1,
+  "RAM": $totmem,
+  "HDmemory": 0,
+  "architecture": "$HOSTTYPE",
+  "status": "que",
+  "priority": $prior
+}
 END
 
 echo 'status.mns'
 cat <<END> status.mns
-!start
-NODE: none
-hostname: $HOSTNAME
-Ncpu: 0
-RAM: 0
-HDmemory: 0
-architecture: $HOSTTYPE
-status: up
-priority: $prior
-!end
+{
+  "NODE": "none",
+  "hostname": "$HOSTNAME",
+  "Ncpu": 0,
+  "RAM": 0,
+  "HDmemory": 0,
+  "architecture": "$HOSTTYPE",
+  "status": "up",
+  "priority": $prior
+}
 END
 
 cd ..
