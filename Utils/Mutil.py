@@ -29,13 +29,14 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 ## Common Imports
 ##------------------------------------------------------------------------------
 
-from    Mutil      import *
+#from    Mutil      import *
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/"
+#Mdir="$instdir/"
+Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -61,6 +62,7 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
 import os
 import sys
 import time
+import json
 from   signal import SIGTERM 
 
 ##------------------------------------------------------------------------------
@@ -96,37 +98,11 @@ def writefatalerror(wrote):
 ##------------------------------------------------------------------------------
 
 def readallfile(filename):
-    """Read an entire mns file and store it in lists"""
-    allvar = {}
-    filecomplete='false'
-    ## impose the completeness of the file
-    while (filecomplete=='false'):     
-        try:
-            with open(filename+'.mns','r') as filein:
-                output=filein.read()
-        except:
-            writefatalerror(filename+' file not found in your minosse directory!') 
-        output=output.split('\n')
-        for i in range(len(output)):
-            if output[i].strip() == '!end':
-                filecomplete='true'
-    ## divide in two lists the first one with the variable name
-    ## the second one with the variable value
-    for i in range(len(output)):
-        case=output[i].strip()
-        if case == '' or case == '!start' or case == '!end':
-            pass
-        else:
-            element=output[i].split(':')
-            varname = element[0].strip()
-            if element[1].strip() == '':
-                element[1]='none'
-            varvalue = element[1].strip()
-        if varname in allvar.keys():
-            allvar[varname].append(varvalue)
-        else:
-            allvar[varname] = [varvalue]
-    return allvar 
+    """Read an entire mns file and store it in a dictionary"""
+    with open(filename+'.mns','r') as filein:
+        allvar = json.load(filein)
+    return allvar
+
 
 ##------------------------------------------------------------------------------
 ## write files
@@ -135,11 +111,7 @@ def readallfile(filename):
 def writeallfile(filename,allvar):
     """Write an entire mns file """
     with open(filename+'.mns','w') as fileout:
-        fileout.write('!start'+'\n')
-        for varkey in allvar.keys():
-            for varval in allvar[varkey]:
-                fileout.write(f'{varkey}: {varval}')
-        fileout.write('!end\n')
+        json.dump(allvar,fileout,indent=2)
     return
 
 ##------------------------------------------------------------------------------
@@ -159,15 +131,19 @@ def replace(allvar,value,varname,index):
 ## Miscellaneous
 ##------------------------------------------------------------------------------
     
-def applydefaults(allvar1,allvar2,varname):
-    """Apply the default settings content in the default.mns file"""
-    def1=findall(allvar2,varname)
-    for varname in allvar1.keys():
-        for i in range(len(allvar1[varname])):
-            if allvar1[varname][i] == 'none':
-                allvar1[varname][i] = allvar2[varname]
-
-    return allvar1
+def applydefaults(charge,defaults):
+    """Apply the default settings if left undefined"""
+    for jobid in charge:
+        job = charge[jobid]
+        if job['RAM'] == float("NaN"):
+            charge[jobid]['RAM'] = defaults['RAM']
+        if job['Ncpu'] == float("NaN"):
+            charge[jobid]['Ncpu'] = defaults['Ncpu']
+        if job['HDmemory'] == float("NaN"):
+            charge[jobid]['HDmemory'] = defaults['HDmemory']
+        if job['priority'] == float("NaN"):
+            charge[jobid]['priority'] = defaults['priority']
+    return charge
 
 def difference(allvar1,allvar2,varname):
     """Make the difference between two lists of variables"""
@@ -209,6 +185,59 @@ def testtext(allvar1,allvar2,varname):
                     index2.append(j)
     freepos=[free,index1,index2]
     return freepos
+
+def find_queued_jobs(charge):
+    """ find the jobs that are in "que" status"""
+    que_jobs = {}
+    for jobid in charge:
+        job = charge[jobid]
+        if job['status'] == 'que':
+            que_jobs[jobid] = job
+
+    return que_jobs
+
+def sortbypriority(jobs):
+    """ Sort the jobs by priority """
+    id_prior = []
+    for jobid in jobs:
+        job = jobs[jobid]
+        id_prior.append([jobid, job['priority']])
+
+    id_prior.sort(key=lambda x: x[1])
+    return id_prior  
+
+def find_available_resources(status,realvalue):
+    """Find the available resources"""
+    used_cpu = status['Ncpu']
+    used_ram = status['RAM']
+    used_hd = status['HDmemory']
+    free_cpu = realvalue['Ncpu'] - used_cpu
+    free_ram = realvalue['RAM'] - used_ram
+    free_hd = realvalue['HDmemory'] - used_hd
+    if free_cpu > 0 and free_ram > 0 and free_hd > 0:
+        free_space = True
+    else:
+        free_space = False
+    available = {'free_space': free_space, 'Ncpu': free_cpu, 'RAM': free_ram, 'HDmemory': free_hd}
+    return available
+
+def check_for_submissions(available,priority_list,queue):
+    """Check for the jobs to be submitted """
+    free_cpu = available['Ncpu']
+    free_ram = available['RAM']
+    free_hd = available['HDmemory']
+    to_be_submitted = []
+    for i in range(len(priority_list)):
+        jobid = priority_list[i][0]
+        job = queue[jobid]
+        if free_cpu >= job['Ncpu'] and free_ram >= job['RAM'] and free_hd >= job['HDmemory']:
+            to_be_submitted.append(jobid)
+            free_cpu -= job['Ncpu']
+            free_ram -= job['RAM']
+            free_hd -= job['HDmemory']
+    return to_be_submitted
+        
+
 
 def choice(tests,allvar1):
     """Merge all the tests results finding the free machine"""
@@ -274,61 +303,48 @@ def endjob(charge,subprocesses):
         result=[job,subprocesses]
     return result
 
-def delete(charge,ended,varnames):
+def delete(jobid,jobs):
     """delete a job"""
-    index=[]
-    for j in range(len(varnames)):
-        n=0
-        for i in range(len(charge[0])):
-            if varnames[j] == charge[0][i]:
-                if n == ended:
-                    index.append(i)    
-                n=n+1
-    index.sort()
-    for i in range(len(index)-1,-1,-1):
-        charge[0].pop(index[i])
-        charge[1].pop(index[i])
-    return charge
+    deleted = jobs.pop(jobid,None)
+    return deleted
 
-def makelist(tot,a,b):
-    """create a list from variables"""
-    l1=tot[0]
-    l2=tot[1]
-    l1.append(a)
-    l2.append(b)
-    tot=[l1,l2]
-    return tot
+def update_status(status,job):
+    """Update the machine status"""
+    status['Ncpu'] = status['Ncpu'] + job['Ncpu']
+    status['RAM'] = status['RAM'] + job['RAM']
+    status['HDmemory'] = status['HDmemory'] + job['HDmemory']
 
 def cleanstatus(status):
     """Clean up the machine status at startup"""
-    status=replace(status,'up','status',0)
-    status=replace(status,'0','RAM',0)
-    status=replace(status,'0','Ncpu',0)
-    status=replace(status,'0','HDmemory',0)
+    # clean the status file
+    status["status"] = "up"
+    status["RAM"] = 0
+    status["Ncpu"] = 0
+    status["HDmemory"] = 0
+    # clean minosse directory
     ls=os.listdir(Mdir)
     for i in range(len(ls)):
         if ls[i].startswith(file5) or ls[i].startswith(file8):
             infile=ls[i].split('.')[0]
             os.remove(Mdir+infile+'.mns')
-    charge=readallfile(file2)
-    pid=findall(charge,'pid')
-    run=findall(charge,'status')
-    for i in range(len(pid)):
-        if run[i] == 'run':
+    # kill running jobs
+    charge = readallfile(file2)
+    for jobid in charge:
+        job = charge[jobid]
+        if job['status'] == 'run':
+            pid = job['pid']
             try:
-                tokill=getpid(pid[i],'all')
-                os.kill(int(pid[i]),SIGTERM)
-                for j in range(len(tokill)):
-                    os.kill(int(tokill[j]),SIGTERM)
+                os.kill(int(pid),SIGTERM)
             except:
                 pass
     writemessage('All jobs killed')
-    writeallfile(file2,[[],[]])
-    start=readallfile(file6)
-    start=replace(start,'up','status',0)
+    writeallfile(file2,{})
+    start = readallfile(file6)
+    start["status"] = "up"
     writeallfile(file6,start)
     writemessage('status machine cleaned')
     return status
+
 
 def checkdemon(file6):
     """Check if the demon must run or stop"""
@@ -402,9 +418,25 @@ def writejob(Mdir,fileA,fileB):
                charge[0]=ch[0]+tmp[0]
                charge[1]=ch[1]+tmp[1]
                writeallfile(fileB,charge)
-            os.remove(Mdir+infile+'.mns')
+#            os.remove(Mdir+infile+'.mns')
     return
 
+def writejob(Mdir,fileA,fileB):
+    """check the new submitted jobs"""
+    ls = os.listdir(Mdir)
+    tracked_jobs = readallfile(fileB)
+    for i, f in enumerate(ls):
+        if f.startswith(fileA):
+            subjname = f.split('.')[0]
+            jobid = subjname[6:]
+            if jobid in tracked_jobs:
+                pass
+            else:
+                job = readallfile(Mdir + subjname)
+                tracked_jobs[jobid] = job[jobid]
+                os.remove(Mdir + f)
+    writeallfile(fileB, tracked_jobs)
+             
 def getpid(pid,opt):
     """extract the pid of all child processes"""
     pppp,ppp,pall=[],[],[]
