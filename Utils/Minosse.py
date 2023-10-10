@@ -84,7 +84,6 @@ defaults=readallfile(file4)
 while 1:
     ## read files
     status=readallfile(file3)
-    writejob(Mdir,file5,file2)
     charge=readallfile(file2)
     ## apply default settings if not specified in the request
     charge=applydefaults(charge,defaults)
@@ -111,14 +110,14 @@ while 1:
                 job['status'] = 'run'
                 job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
                 writemessage('Job '+script+' submitted')
-                update_status(status,job)
+                update_status(status,job,1)
             except:
                 writewarning(' Something wrong in the '+script+' script')
                 deleted = delete(jobid,charge)
                 if deleted:
                     writewarning('Job aborted')
                 else:
-                    writewarning('Unable to delete job')
+                    writewarning('Unable to run or delete job')
         writeallfile(file2,charge)
         writeallfile(file3,status)
     else:
@@ -126,28 +125,15 @@ while 1:
     ## refresh the variables 
     charge=readallfile(file2)
     status=readallfile(file3)
-    ## check ended jobs 
-    result=endjob(charge,subprocesses)
-    job=result[0]
-    subprocesses=result[1]
-    if job == 'no':
-        pass
-    else:
-        writemessage('job '+str(findall(charge,'script')[job]+' ended'))
-        ## refresh the status when a job ends
-        writemessage('Refresh machine status')
-        status=newstatus2(status,charge,'RAM',job)
-        status=newstatus2(status,charge,'Ncpu',job)
-        status=newstatus2(status,charge,'HDmemory',job)
-        writeallfile(file3,status)
-        ## delete from queue list the job ended
-        writemessage('Refresh queue status')
-        charge=delete(charge,job,varnames)
-        writeallfile(file2,charge)
+    ## check ended jobs
+    charge, status = endjob(charge,status)
+    writeallfile(file3,status)
+    writeallfile(file2,charge)
+    ## check for jobs to be deleted
+    checkdeletedjob(file7,file2,file8,file3)
     ## check the stop file wich control the minosse  demon
     checkdemon(file6)
-    ## check if a job has been deleted from the que system
-    checkdeletedjob(file7,file2,varnames)
     ## write in the charge file the new submitted job
+    writejob(Mdir,file5,file2)
     ## waiting time
     time.sleep(1)

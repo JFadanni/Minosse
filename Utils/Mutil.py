@@ -63,7 +63,8 @@ import os
 import sys
 import time
 import json
-from   signal import SIGTERM 
+from   signal import SIGTERM
+from subprocess import check_output
 
 ##------------------------------------------------------------------------------
 ## write messages
@@ -118,11 +119,11 @@ def writeallfile(filename,allvar):
 ## find or find and replace
 ##------------------------------------------------------------------------------
 
-def findall(allvar,findvarname):
+def findall(allvar,findvarname): # Useless in new setup
     """find in a varialbe in a list"""
     return allvar[findvarname]
 
-def replace(allvar,value,varname,index):
+def replace(allvar,value,varname,index): # Useless in new setup
     """change the value of a variable in a specified position"""
     allvar[varname][index]=value
     return allvar
@@ -131,7 +132,7 @@ def replace(allvar,value,varname,index):
 ## Miscellaneous
 ##------------------------------------------------------------------------------
     
-def applydefaults(charge,defaults):
+def applydefaults(charge,defaults): # May be useless
     """Apply the default settings if left undefined"""
     for jobid in charge:
         job = charge[jobid]
@@ -145,7 +146,7 @@ def applydefaults(charge,defaults):
             charge[jobid]['priority'] = defaults['priority']
     return charge
 
-def difference(allvar1,allvar2,varname):
+def difference(allvar1,allvar2,varname): # Already replaced
     """Make the difference between two lists of variables"""
     diffvar=[]
     var1=findall(allvar1,varname)
@@ -154,7 +155,7 @@ def difference(allvar1,allvar2,varname):
         diffvar.append(int(var1[i])-int(var2[i]))
     return diffvar
 
-def testalgebric(allvar1,allvar2,allvar3,varname):
+def testalgebric(allvar1,allvar2,allvar3,varname): # Already replaced
     """Make a test for numeric varible if allvar1-allvar2 <= allvar3"""
     free=[]
     index1=[]
@@ -170,7 +171,7 @@ def testalgebric(allvar1,allvar2,allvar3,varname):
     freepos=[free,index1,index2]
     return freepos
 
-def testtext(allvar1,allvar2,varname):
+def testtext(allvar1,allvar2,varname): # Already replaced
     """Make a test for test variable if allvar1[varname] == allvar2[varname]"""
     free=[]
     index1=[]
@@ -186,7 +187,7 @@ def testtext(allvar1,allvar2,varname):
     freepos=[free,index1,index2]
     return freepos
 
-def find_queued_jobs(charge):
+def find_queued_jobs(charge): # New function
     """ find the jobs that are in "que" status"""
     que_jobs = {}
     for jobid in charge:
@@ -196,17 +197,17 @@ def find_queued_jobs(charge):
 
     return que_jobs
 
-def sortbypriority(jobs):
+def sortbypriority(jobs): # New function
     """ Sort the jobs by priority """
     id_prior = []
     for jobid in jobs:
         job = jobs[jobid]
         id_prior.append([jobid, job['priority']])
 
-    id_prior.sort(key=lambda x: x[1])
+    id_prior.sort(key=lambda x: x[1], reverse=True)
     return id_prior  
 
-def find_available_resources(status,realvalue):
+def find_available_resources(status,realvalue): # New function
     """Find the available resources"""
     used_cpu = status['Ncpu']
     used_ram = status['RAM']
@@ -221,7 +222,8 @@ def find_available_resources(status,realvalue):
     available = {'free_space': free_space, 'Ncpu': free_cpu, 'RAM': free_ram, 'HDmemory': free_hd}
     return available
 
-def check_for_submissions(available,priority_list,queue):
+def check_for_submissions(available,priority_list,queue): # New function
+    # It replaces the test... functions
     """Check for the jobs to be submitted """
     free_cpu = available['Ncpu']
     free_ram = available['RAM']
@@ -239,7 +241,7 @@ def check_for_submissions(available,priority_list,queue):
         
 
 
-def choice(tests,allvar1):
+def choice(tests,allvar1): # Useless in new setup
     """Merge all the tests results finding the free machine"""
     a,b,c=[],[],[]
     trial=tests[0]
@@ -257,7 +259,7 @@ def choice(tests,allvar1):
         trial[0][i]=ref[trial[2][i]]
     return trial
 
-def prior(trial,allvar):
+def prior(trial,allvar): # Useless in new setup
     """Test priority of the machines and calculations"""
     prio=[]
     ref=findall(allvar,'priority')
@@ -267,7 +269,7 @@ def prior(trial,allvar):
     Fprio=trial[1][Mprio]
     return Fprio
 
-def newstatus(allvar1,allvar2,varname,job):
+def newstatus(allvar1,allvar2,varname,job): # Useless in new setup
     """Modify the status after the job choice"""
     def1=findall(allvar2,varname)
     for i in range(len(allvar1[0])):
@@ -275,7 +277,7 @@ def newstatus(allvar1,allvar2,varname,job):
             allvar1[1][i]=int(allvar1[1][i])+int(def1[job])
     return allvar1
 
-def newstatus2(allvar1,allvar2,varname,job):
+def newstatus2(allvar1,allvar2,varname,job): # Useless in new setup
     """Modify the status after the job end"""
     def1=findall(allvar2,varname)
     for i in range(len(allvar1[0])):
@@ -283,7 +285,7 @@ def newstatus2(allvar1,allvar2,varname,job):
             allvar1[1][i]=int(allvar1[1][i])-int(def1[job])
     return allvar1
 
-def endjob(charge,subprocesses):
+def endjob1(charge,subprocesses):## old function
     """find the ended jobs"""  
     p=[]
     ended='no'
@@ -303,18 +305,35 @@ def endjob(charge,subprocesses):
         result=[job,subprocesses]
     return result
 
-def delete(jobid,jobs):
+def endjob(charge, status): # New function
+    """find the ended jobs"""
+    psaux = check_output("ps -aux | awk '{print $2}'", shell=True,text=True)
+    running_processes = psaux.split('\n')[1:-1]
+    for jobid in charge:
+        job = charge[jobid]
+        if job['status'] == 'run':
+            pid = job['pid']
+            if !(pid in running_processes):
+                job['status'] = 'end'
+                writemessage('Job '+job['script']+' ended')
+                update_status(charge,job,-1)
+                ended  =  delete(jobid,charge)
+
+    return charge, status
+                
+
+def delete(jobid,jobs): # New function
     """delete a job"""
     deleted = jobs.pop(jobid,None)
     return deleted
 
-def update_status(status,job):
+def update_status(status,job,val): # New function
     """Update the machine status"""
-    status['Ncpu'] = status['Ncpu'] + job['Ncpu']
-    status['RAM'] = status['RAM'] + job['RAM']
-    status['HDmemory'] = status['HDmemory'] + job['HDmemory']
+    status['Ncpu'] = status['Ncpu'] + job['Ncpu'] * val
+    status['RAM'] = status['RAM'] + job['RAM'] * val
+    status['HDmemory'] = status['HDmemory'] + job['HDmemory'] * val
 
-def cleanstatus(status):
+def cleanstatus(status): # New function
     """Clean up the machine status at startup"""
     # clean the status file
     status["status"] = "up"
@@ -346,80 +365,68 @@ def cleanstatus(status):
     return status
 
 
-def checkdemon(file6):
+def checkdemon(file6): # Updated function
     """Check if the demon must run or stop"""
-    stop=readallfile(file6)
-    if findall(stop,'status')[0] == 'stop':
-        status=readallfile(file3)
+    stop = readallfile(file6)
+    if stop['status'] == 'stop':
+        status = readallfile(file3)
         cleanstatus(status)
-        stop=replace(stop,'down','status',0)
+        stop['status'] = 'down'
         writeallfile(file6,stop)
         writemessage('---MINOSSE STOPS---')
         sys.exit(0)
     return
 
-def checkdeletedjob(file7,file2,varnames):
+def checkdeletedjob(file7,file2,file8,file3): # Updated function
     """check the requests of deleting jobs"""
     writejob(Mdir,file8,file7)
-    inp=readallfile(file7)
-    if inp != [[],[]] :
-        id=findall(inp,'id')
-        script=findall(inp,'script')
-        opt=findall(inp,'priority')
-        user=findall(inp,'user')
-        for i in range(len(id)):
-            if id[i] != 'none' or script[i] != 'none' :
-                charge=readallfile(file2)
-                Ljob=findall(charge,'id')
-                Lscript=findall(charge,'script')
-                Luser=findall(charge,'user')
-                for j in range(len(Ljob)):
-                     if (Ljob[j] == id[i] or Lscript[j] == script[i]) and ( Luser[j] == user[i]  or user[i] == 'root'):
-                          writemessage('killing job '+Lscript[j])
-                          if findall(charge,'status')[j] == 'run':
-                               try:
-                                   pid=findall(charge,'pid')[j]
-                                   tokill=getpid(pid,opt[i])
-                                   if opt[i] == 'all':
-                                      os.kill(int(pid),SIGTERM)
-                                   for k in range(len(tokill)):
-                                      os.kill(int(tokill[k]),SIGTERM)
-                               except:
-                                   pass
-                                   ## patch 16 june 2008
-                                   ##charge=delete(charge,j,varnames)
-                                   ##writeallfile(file2,charge)
-                                   ##inp=replace(inp,'none','id',i)
-                                   ##writeallfile(file7,inp)
-                          else:
-                               charge=delete(charge,j,varnames)
-                               writeallfile(file2,charge)
-                               ##inp=replace(inp,'none','id',i)
-                               ##writeallfile(file7,inp)
-        inp=[[], []]
-        writeallfile(file7,inp)
+    inp = readallfile(file7)
+    status = readallfile(file3)
+    if inp:
+        alljobs = readallfile(file2)
+        for delid in inp:
+            delinst = inp[delid]
+            script = delinst['script']
+            id = delinst['id']
+            opt = delinst['all']
+            duser = delinst['user']
+            if id:
+                tbdel = alljobs[id]
+                juser = tbdel['user']
+                if juser == duser:
+                    if tbdel['status'] == 'run':
+                        pid = tbdel['pid']
+                        try:
+                            os.kill(pid,SIGTERM)
+                            deleted = delete(id,alljobs)
+                            update_status(status,tbdel,-1)
+                        except:
+                            writewarning('Unable to kill job '+id)
+                    else:
+                        deleted = delete(id,alljobs)
+                else:
+                    writewarning('trying to delete a job of another user')
+            if script:
+                for job in alljobs:
+                    if job['script'] == script and job['user'] == duser:
+                        if job['status'] == 'run':
+                            pid = job['pid']
+                            try:
+                                os.kill(pid,SIGTERM)
+                                deleted = delete(job['id'],alljobs)
+                                update_status(status,job,-1)
+                            except:
+                                writewarning('Unable to kill job '+script)
+                        else:
+                            deleted = delete(job['id'],alljobs)
+            if deleted:
+                writemessage('job '+script+' deleted')
+
+    writeallfile(file2,alljobs)
+    inp = {}
+    writeallfile(file7,inp)
     return
 
-def writejob(Mdir,fileA,fileB):
-    """check the new submitted job"""
-    ls=os.listdir(Mdir)
-    for i in range(len(ls)):
-        if ls[i].startswith(fileA):
-            tmp=[]
-            charge=[[],[]]
-            infile=ls[i].split('.')[0]
-            tmp=readallfile(Mdir+infile)
-            scriptA=findall(tmp,'script')
-            ch=readallfile(fileB)
-            scriptB=findall(ch,'script')
-            if scriptA[0] in scriptB :
-               pass
-            else:
-               charge[0]=ch[0]+tmp[0]
-               charge[1]=ch[1]+tmp[1]
-               writeallfile(fileB,charge)
-#            os.remove(Mdir+infile+'.mns')
-    return
 
 def writejob(Mdir,fileA,fileB):
     """check the new submitted jobs"""
