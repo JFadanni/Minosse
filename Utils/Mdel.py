@@ -47,14 +47,6 @@ file8='remove'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
-## Variable names
-##------------------------------------------------------------------------------
-
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
-
-##------------------------------------------------------------------------------
 ## Imports
 ##------------------------------------------------------------------------------
 
@@ -69,11 +61,11 @@ import getpass
 parser = OptionParser(usage="%prog", version="%prog 1.0.0")
 
 parser.add_option("-j", "--job",
-                  action="store", dest="job",  default="none",
+                  action="store", dest="job", type="int", default="none",
                   help="id number")
 
 parser.add_option("-s", "--script",
-                  action="store", dest="script", default="none",
+                  action="store", dest="script", type="string", default="none",
                   help="script name")
 
 parser.add_option("-a", "--all",
@@ -90,13 +82,13 @@ ifrunning()
 
 RND=str(random.randint(1, 1000000))
 
-if options.all == True :
-   opt='all'
-else:
-   opt='none'
 
-deljob=[['script','id','priority','user'],
-        [options.script,options.job,opt,getpass.getuser()]]
+delkeys = ['script','id','all','user']
+delvalues = [options.script,options.job,options.all,getpass.getuser()]
+deljob = {}
+
+for vname, vval in zip(delkeys, delvalues):
+   deljob[vname] = vval
 
 
-writeallfile(Mdir+file8+RND,deljob)
+writeallfile(Mdir+file8+RND,{RND :deljob})
