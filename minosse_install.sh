@@ -116,17 +116,40 @@ chmod u+x $instdir/minosse_uninst.sh
 chmod a+x $instdir/Msub.py
 chmod a+x $instdir/Mdel.py
 chmod a+x $instdir/Mstat.py
+chmod a+wr $instdir
+chmod a+wr $instdir/delete.mns
+chmod a+r  $instdir/charge.mns
 
-cd $instdir
+echo -e '\nwhere do you want to create the executable links?[/usr/local/bin]'
+read linkdir
+if [[ -z $linkdir ]]; then
+	linkdir='/usr/local/bin/'
+fi
+
+if [[ -d $linkdir ]]; then
+	cd $linkdir
+else
+	echo "$linkdir not exists!!!"
+	echo "Do you want to create $linkdir?[Yes/no]"
+	read link
+	if [[ -z $link ]]; then
+		link='Y'
+	fi
+	if [ $link = 'Yes' -o $link = 'Y' -o $link = 'y' -o $link = 'yes' ]; then
+		mkdir $linkdir
+		cd $linkdir
+	else
+		fatal
+	fi
+fi
+
+
 ln -fs $instdir/minosse minosse
 ln -fs $instdir/Msub.py msub
 ln -fs $instdir/Mdel.py mdel
 ln -fs $instdir/Mstat.py mstat
 ln -fs $instdir/minosse_uninst.sh minosse_uninst
 
-chmod a+wr $instdir
-chmod a+wr $instdir/delete.mns
-chmod a+r  $instdir/charge.mns
 
 echo ''
 echo 'INSTALLATION COMPLETE!!!'

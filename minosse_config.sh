@@ -103,7 +103,14 @@ else
 	fatal
 fi
 
-mkdir Tmp/
+
+if [[ -d Tmp ]]; then
+  echo -e '\n directory Tmp exists'
+  rm Tmp/*
+else
+  mkdir Tmp/
+fi
+
 cd Tmp
 
 echo -e '\nwrite Minosse files:'
