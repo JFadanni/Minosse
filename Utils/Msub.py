@@ -100,7 +100,7 @@ architecture= os.uname()[-1]
 id=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,'eide',options.HD,architecture,'que',
+        [socket.gethostname(),options.cpus,options.memory,options.HD,architecture,'que',
          options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(Mdir+file5+id,subjob)
