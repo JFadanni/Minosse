@@ -22,8 +22,8 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "5th Oct 2023"
-__version__ = '$Revision: 1.1.0 $'
+__date__ = "12th Nov 2023"
+__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 ## Common Imports
