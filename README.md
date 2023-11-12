@@ -1,5 +1,5 @@
 
-# **Minosse** version 1.1.0, 5th Oct 2023
+# **Minosse** version 1.3.0, 12th Nov 2023
 
 Minosse is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -13,31 +13,21 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 
 You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
+In this file, you can find almost everything you need to install and run Minosse batch system (it is a tiny program!).
 
-
-In this file you can find almost everything you need to install and run Minosse
-batch system (it is a tiny program!).
-
-This file is generated during installation step or can be downloaded from the git repository.
+This file is generated during the installation step or can be downloaded from the git repository.
 
 ## How to install:
 Minosse needs Python 3 installed on your machine. No special packages are needed.
 
 To install Minosse two steps are needed:
-1. Run the configuration script ```minosse_config.sh``` to setup the working environment:  
+1. Run the configuration script ```minosse_config.sh``` to set the working environment:  
 $ ``` ./minosse_config.sh```
 
 2. Run the installer script ```minosse_inst.sh``` as root to copy Minosse files in the installation directory:  
 $ ```sudo ./minosse_inst.sh```
 
-
->Minosse installer does not support non default values for the machine 
-specification.  
-In order to change them you need to left the default during the installation, 
-and then edit the _nodes.mns_ file and  change manually the values (if you 
-can avoid, don't do it!).
-
-Here an example of the nodes.mns:
+Here is an example of the nodes.mns:
 
 ```
 !start   
@@ -58,23 +48,17 @@ You can change each one of these values and then start Minosse.
 
 If you find problems installing or running this program please use the [Issues section on GitHub](https://github.com/JFadanni/Minosse/issues), I will be happy to find a solution to your problem.
 
-This release of Minosse works only for single workstation/server with N° SHM
-processors.
-There are no limits for the number of processors, RAM memory, or disk space 
-which are supported by Minosse.
+This release of Minosse works only for single workstation/server with N° SHM processors.
+There are no limits to the number of processors, RAM, or disk space that are supported by Minosse.
 
 Minosse administrates your jobs through a simple scheme looking at the free 
 resources of your system, so no real queues are created.
-For example if you have 4 cpus but only 2 GB of RAM, two jobs requiring 
-1.5 GB RAM (each one) cannot run at the same time, and Minosse queue up
-one of these two.
+For example, if you have 4 CPUs but only 2 GB of RAM, two jobs requiring 1.5 GB RAM (each one) cannot run at the same time, and Minosse queue up one of these two.
 
 
 ## How to use:
-During the installation, the script asks you in which directory you want 
-to create the links. If this directory is not in your $PATH 
-(like: /usr/local/bin or /urs/bin/) you cannot use the minosse commands simply 
-typing the name of the command, but you need to specify the entire the path.
+During the installation, the script asks you in which directory you want to create the links. If this directory is not in your $PATH 
+(like: /usr/local/bin or /urs/bin/) you cannot use the minosse commands by simply typing the name of the command, but you need to specify the entire path.
 - Start/stop the demon (only root can do it):
  
    ```minosse start/stop```
@@ -91,7 +75,7 @@ The flag `-h` gives you the usage for all the next commands.
 
 - Submit a job:
 
-   ```msub -f "path/scriptname" -c "n° of cpu" -m "ram memory"```
+   ```msub -f "path/scriptname" -c "n° of CPU" -m "RAM"```
 
 - delete a job:
 
@@ -99,7 +83,7 @@ The flag `-h` gives you the usage for all the next commands.
 
 ***
 # Gaussian submitting script
-Here an example of a Gaussian (Gaussian16) submitting script using Minosse:
+Here is an example of a Gaussian (Gaussian16) submitting script using Minosse:
 ```sh
 #!/bin/bash
 
