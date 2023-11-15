@@ -23,8 +23,6 @@ case "$1" in
 	start)
 		run=$(ps -eo args | grep Minosse.py | grep python)
 		if [[ -n $run ]]; then
-		run=$(ps -eo args | grep Minosse.py | grep python)
-		if [[ -n $run ]]; then
 			echo -e '\nMinosse is already running\n'
 			exit
 		else 
@@ -36,14 +34,6 @@ case "$1" in
 		fi
 	;;
 	stop)
-		run=$(ps -eo args | grep Minosse.py | grep python)
-		if [[ -n $run ]]; then
-			sed -i s/up/stop/ $instdir/conf.mns 
-			echo 'Stopping Minosse ...' 
-			sleep 2
-			echo 'Minosse demon stopped'
-		else 
-			echo -e '\n no Minosse demon running\n'
 		run=$(ps -eo args | grep Minosse.py | grep python)
 		if [[ -n $run ]]; then
 			sed -i s/up/stop/ $instdir/conf.mns 
