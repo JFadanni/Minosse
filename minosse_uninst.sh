@@ -19,7 +19,7 @@
 #Minosse version 1.3.0, 12th Nov 2023
 #---------------------------------------------------------------------------------
 
-if [[ \$USER != 'root' ]]; then
+if [[ $USER != 'root' ]]; then
         echo -e '\nPermission denied, you are not superuser\n'
         exit
 fi
@@ -29,14 +29,14 @@ echo -e '\nDo you want really uninstall Minosse que system?[yes/No]'
 echo 'All calculations submitted using Minosse will be stopped immediately'
 read var
 
-if [ \$var = 'Yes' -o \$var = 'Y' -o \$var = 'y' -o \$var = 'yes' ] ; then
+if [ $var = 'Yes' -o $var = 'Y' -o $var = 'y' -o $var = 'yes' ] ; then
         link=$linkdir
-	run=\$(ps -eo args | grep Minosse.py | grep python | awk '{print(\$2)}')
-	if [[ -n \$run ]]; then
+	run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}')
+	if [[ -n $run ]]; then
 		minosse stop
 	fi
 	rm -fr $instdir
-	rm \$link/msub \$link/mdel \$link/mstat \$link/minosse \$link/minosse_uninst
+	rm $link/msub $link/mdel $link/mstat $link/minosse $link/minosse_uninst
 	echo -e '\nMinosse uninstalled\n'
 else
 	exit
