@@ -1,6 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from   optparse   import OptionParser
+from    Mutil      import *
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -26,39 +29,20 @@ __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
-
-##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
-file1=Mdir+'nodes'
 file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-from   optparse   import OptionParser
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -76,36 +60,50 @@ parser.add_option("-v", "--verbose",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 
-print ('Minosse batch system v1.0.0')
+print (f'Minosse batch system {__version__}')# fix version
 print ('-'*60)
 
 charge=readallfile(file2)
-user=findall(charge,'user')
 
 if options.verbose == True :
-        status=findall(charge,'status')
-        if status == []:
-            print ('  System free: no job queued or running')
-        else:
-
-            for i in range(len(user)):
-                for j in range(int(len(charge[0])/len(user))):
-                     print ('%15s' % charge[0][j+int(len(charge[0])/len(user))*i],':',charge[1][j+int(len(charge[0])/len(user))*i])
+    if charge:
+        print ("Queued or running jobs:\n","-"*60)
+        for id in charge:
+            job = charge[id]
+            print(f"{id}:")
+            print(f"  user: {job['user']}")
+            print(f"  script: {job['script']}")
+            print(f"  priority: {job['priority']}")
+            print(f"  status: {job['status']}")
+            print(f"  Ncpu: {job['Ncpu']}")
+            print(f"  RAM: {job['RAM']}")
+            print(f"  HDmemory: {job['HDmemory']}")
+            print(f"  subtime: {job['subtime']}")
+            if job['status'] == 'run':
+                print(f"  runtime: {job['runtime']}")
+                print(f"  pid: {job['pid']}")
+            else:
+                print("  runtime: -")
+                print("  pid: -")
+    else:
+        print ('  System free: no job queued or running')
 
 else:
-        status=findall(charge,'status')
-        Ncpu=findall(charge,'Ncpu')
-        RAM=findall(charge,'RAM')
-        priority=findall(charge,'priority')
-        id=findall(charge,'id')
+    if charge:
+        print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
+        print ('-'*60)
+        for id in charge:
+            job = charge[id]
+            user = job['user']
+            script = job['script']
+            status = job['status']
+            Ncpu = job['Ncpu']
+            RAM = job['RAM']
+            priority = job['priority']
 
-        if status == []:
-            print ('  System free: no job queued or running')
-        else:
-            print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
-            print ('-'*60)
-            for i in range(len(status)):
-                print ('%15s' % user[i],'%6s' %Ncpu[i],'%8s' % RAM[i],'%7s' % id[i],'%7s' %status[i], '%9s' %priority[i])
+            print ('%15s' % user,'%6s' %Ncpu,'%8s' % RAM,'%7s' % id,'%7s' %status, '%9s' %priority)
+    else:
+        print ('  System free: no job queued or running')
 print ('-'*60)

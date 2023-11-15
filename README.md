@@ -13,9 +13,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 
 You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
-In this file, you can find almost everything you need to install and run Minosse batch system (it is a tiny program!).
+In this file, you can find almost everything you need to install and run the Minosse batch system (it is a tiny program!).
 
-This file is generated during the installation step or can be downloaded from the git repository.
 
 ## How to install:
 Minosse needs Python 3 installed on your machine. No special packages are needed.
@@ -48,7 +47,7 @@ You can change each one of these values and then start Minosse.
 
 If you find problems installing or running this program please use the [Issues section on GitHub](https://github.com/JFadanni/Minosse/issues), I will be happy to find a solution to your problem.
 
-This release of Minosse works only for single workstation/server with N° SHM processors.
+This release of Minosse works only for single workstations/servers with N° SHM processors.
 There are no limits to the number of processors, RAM, or disk space that are supported by Minosse.
 
 Minosse administrates your jobs through a simple scheme looking at the free 

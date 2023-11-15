@@ -1,6 +1,12 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import random
+import getpass
+from   optparse   import OptionParser
+
+from    Mutil      import *
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -25,42 +31,14 @@ __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
 file8='remove'
 mess=Mdir+'messages'
-
-##------------------------------------------------------------------------------
-## Variable names
-##------------------------------------------------------------------------------
-
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-from   optparse   import OptionParser
-import random
-import getpass
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -69,11 +47,11 @@ import getpass
 parser = OptionParser(usage="%prog", version="%prog 1.0.0")
 
 parser.add_option("-j", "--job",
-                  action="store", dest="job",  default="none",
+                  action="store", dest="job", type="int", default="none",
                   help="id number")
 
 parser.add_option("-s", "--script",
-                  action="store", dest="script", default="none",
+                  action="store", dest="script", type="string", default="none",
                   help="script name")
 
 parser.add_option("-a", "--all",
@@ -86,17 +64,17 @@ parser.add_option("-a", "--all",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+ifrunning(Mdir)
 
 RND=str(random.randint(1, 1000000))
 
-if options.all == True :
-   opt='all'
-else:
-   opt='none'
 
-deljob=[['script','id','priority','user'],
-        [options.script,options.job,opt,getpass.getuser()]]
+delkeys = ['script','id','all','user']
+delvalues = [options.script,options.job,options.all,getpass.getuser()]
+deljob = {}
+
+for vname, vval in zip(delkeys, delvalues):
+   deljob[vname] = vval
 
 
-writeallfile(Mdir+file8+RND,deljob)
+writeallfile(Mdir+file8+RND,{RND :deljob})
