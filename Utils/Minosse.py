@@ -39,7 +39,6 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
-#Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -54,7 +53,7 @@ mess=Mdir+'messages'
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
@@ -76,8 +75,6 @@ while 1:
     ## read files
     status=readallfile(file3)
     charge=readallfile(file2)
-    ## apply default settings if not specified in the request
-    charge=applydefaults(charge,defaults)
 #    charge=chainjob(charge)
     ## test free slots for the requests
     available_resources = find_available_resources(status,realvalue)
@@ -91,8 +88,7 @@ while 1:
             user = job['user']
             script = job['script']
             try:
-                #subpro=Popen(["runuser -u "+user+" "+script],shell=True)
-                subpro = Popen(script, shell=True)
+                subpro=Popen([f"runuser -u {user} {script}"],shell=True)
                 pid=subpro.pid
                 errors=subpro.errors
                 if (errors):

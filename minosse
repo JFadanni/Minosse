@@ -17,10 +17,8 @@
 #along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 #
 #Minosse version 1.3.0, 12th Nov 2023
-#Minosse version 1.3.0, 12th Nov 2023
 #---------------------------------------------------------------------------------
 
-case "$1" in
 case "$1" in
 	start)
 		run=$(ps -eo args | grep Minosse.py | grep python)

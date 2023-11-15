@@ -37,6 +37,7 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 
 Mdir="$instdir/"
 file5='subjob'
+file4=Mdir+'defaults'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
@@ -48,9 +49,12 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'subtime','runtime']
 
 ##------------------------------------------------------------------------------
-## Imports
+## Loads defaults
 ##------------------------------------------------------------------------------
-
+defaults = readallfile(file4)
+cpus = defaults['Ncpu']
+RAM = defaults['RAM']
+priority = defaults['priority']
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -59,17 +63,17 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 parser = OptionParser(usage="%prog", version=f"%prog {__version__}") # fix version
 
 parser.add_option("-c", "--cpus",
-                  action="store", dest="cpus", default="1", type="int", 
-                  help="nomber of cpus required [default=1]")
+                  action="store", dest="cpus", default=cpus, type="int", 
+                  help=f"nomber of cpus required [default={cpus}]")
 parser.add_option("-m", "--memory",
-                  action="store", dest="memory", default="700", type="int",
-                  help="RAM memory requirement [default=700 MB]")
+                  action="store", dest="memory", default=RAM, type="int",
+                  help=f"RAM memory requirement [default={RAM} MB]")
 #parser.add_option("-d", "--harddisck",
 #                  action="store", dest="HD", default="00", type="int",
 #                  help="HD scratch space required [default=00 GB]")
 parser.add_option("-p", "--priority",
-                  action="store", dest="priority", default="70", type="int",
-                  help="set the priority of a job [default=70]")
+                  action="store", dest="priority", default=priority, type="int",
+                  help=f"set the priority of a job [default={priority}]")
 parser.add_option("-f", "--file",
                   action="store", dest="file",
                   help="set the name of the job script")

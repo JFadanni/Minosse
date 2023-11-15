@@ -82,18 +82,6 @@ def writeallfile(filename,allvar):
         json.dump(allvar,fileout,indent=2)
     return
 
-##------------------------------------------------------------------------------
-## find or find and replace
-##------------------------------------------------------------------------------
-
-def findall(allvar,findvarname): # Useless in new setup
-    """find in a varialbe in a list"""
-    return allvar[findvarname]
-
-def replace(allvar,value,varname,index): # Useless in new setup
-    """change the value of a variable in a specified position"""
-    allvar[varname][index]=value
-    return allvar
 
 ##------------------------------------------------------------------------------
 ## Miscellaneous
@@ -112,47 +100,6 @@ def applydefaults(charge,defaults): # May be useless
         if job['priority'] == float("NaN"):
             charge[jobid]['priority'] = defaults['priority']
     return charge
-
-def difference(allvar1,allvar2,varname): # Already replaced
-    """Make the difference between two lists of variables"""
-    diffvar=[]
-    var1=findall(allvar1,varname)
-    var2=findall(allvar2,varname)
-    for i in range(len(var1)):
-        diffvar.append(int(var1[i])-int(var2[i]))
-    return diffvar
-
-def testalgebric(allvar1,allvar2,allvar3,varname): # Already replaced
-    """Make a test for numeric varible if allvar1-allvar2 <= allvar3"""
-    free=[]
-    index1=[]
-    index2=[]
-    ref=difference(allvar1,allvar2,varname)
-    req=findall(allvar3,varname)
-    for i in range(len(req)):
-        for j in range(len(ref)):
-                if ref[j]-int(req[i]) >= 0:
-                    free.append(ref[j]-int(req[i]))
-                    index1.append(i)
-                    index2.append(j)
-    freepos=[free,index1,index2]
-    return freepos
-
-def testtext(allvar1,allvar2,varname): # Already replaced
-    """Make a test for test variable if allvar1[varname] == allvar2[varname]"""
-    free=[]
-    index1=[]
-    index2=[]
-    ref=findall(allvar1,varname)
-    req=findall(allvar2,varname)
-    for i in range(len(req)):
-        for j in range(len(ref)):
-                if ref[j] == req[i] or ref[j] == 'none' or req[i] == 'none':
-                    free.append(ref[j])
-                    index1.append(i)
-                    index2.append(j)
-    freepos=[free,index1,index2]
-    return freepos
 
 def find_queued_jobs(charge): # New function
     """ find the jobs that are in "que" status"""
@@ -204,71 +151,7 @@ def check_for_submissions(available,priority_list,queue): # New function
             free_hd -= job['HDmemory']
     return to_be_submitted
 
-def choice(tests,allvar1): # Useless in new setup
-    """Merge all the tests results finding the free machine"""
-    a,b,c=[],[],[]
-    trial=tests[0]
-    for i in range(1,len(tests)):
-        for j in range(len(trial[0])):
-            for k in range(len(tests[i][0])):
-                if trial[1][j] == tests[i][1][k] and trial[2][j] == tests[i][2][k]:
-                    a.append(trial[0][j])
-                    b.append(trial[1][j])
-                    c.append(trial[2][j])
-        trial=[a,b,c]
-        a,b,c=[],[],[]
-    ref=findall(allvar1,'hostname')
-    for i in range(len(trial[0])):
-        trial[0][i]=ref[trial[2][i]]
-    return trial
-
-def prior(trial,allvar): # Useless in new setup
-    """Test priority of the machines and calculations"""
-    prio=[]
-    ref=findall(allvar,'priority')
-    for i in range(len(trial[1])):
-        prio.append(int(ref[trial[1][i]]))
-    Mprio=prio.index(max(prio))
-    Fprio=trial[1][Mprio]
-    return Fprio
-
-def newstatus(allvar1,allvar2,varname,job): # Useless in new setup
-    """Modify the status after the job choice"""
-    def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname :
-            allvar1[1][i]=int(allvar1[1][i])+int(def1[job])
-    return allvar1
-
-def newstatus2(allvar1,allvar2,varname,job): # Useless in new setup
-    """Modify the status after the job end"""
-    def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname :
-            allvar1[1][i]=int(allvar1[1][i])-int(def1[job])
-    return allvar1
-
-def endjob1(charge,subprocesses):## old function
-    """find the ended jobs"""  
-    p=[]
-    ended='no'
-    for i in range(len(subprocesses[0])):
-        p.append(subprocesses[0][i].poll())
-    for i in range(0,len(p)):
-        if p[i] != None:
-            ended=i
-    if ended == 'no':
-        job='no'
-        result=[job,subprocesses]
-    else:
-        sta=findall(charge,'Njob')
-        job=sta.index(str(subprocesses[1][ended]))
-        subprocesses[0].pop(ended)
-        subprocesses[1].pop(ended)        
-        result=[job,subprocesses]
-    return result
-
-def endjob(charge, status,messf): # New function
+def endjob(charge, status, messf): # New function
     """find the ended jobs"""
     psaux = check_output("ps -aux | awk '{print $2}'", shell=True,text=True)
     running_processes = psaux.split('\n')[1:-1]
@@ -283,7 +166,7 @@ def endjob(charge, status,messf): # New function
                 ended  =  delete(jobid,charge)
     return charge, status
 
-def delete(jobid,jobs): # New function
+def delete(jobid, jobs): # New function
     """delete a job"""
     deleted = jobs.pop(jobid,None)
     return deleted
