@@ -1,6 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from   optparse   import OptionParser
+from    Mutil      import *
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -26,40 +29,20 @@ __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
-
-##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
-
-file1=Mdir+'nodes'
+Mdir="$instdir/"
 file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-from   optparse   import OptionParser
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -79,7 +62,7 @@ parser.add_option("-v", "--verbose",
 
 #ifrunning()
 
-print ('Minosse batch system v1.0.0')
+print (f'Minosse batch system {__version__}')# fix version
 print ('-'*60)
 
 charge=readallfile(file2)

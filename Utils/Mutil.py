@@ -1,6 +1,13 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+import time
+import json
+from   signal import SIGTERM
+from   subprocess import check_output
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -25,69 +32,29 @@ __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-#from    Mutil      import *
-
-##------------------------------------------------------------------------------
-## Files names
-##------------------------------------------------------------------------------
-
-#Mdir="$instdir/"
-Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
-mess=Mdir+'messages'
-
-##------------------------------------------------------------------------------
-## Variable names
-##------------------------------------------------------------------------------
-
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-import os
-import sys
-import time
-import json
-from   signal import SIGTERM
-from subprocess import check_output
 
 ##------------------------------------------------------------------------------
 ## write messages
 ##------------------------------------------------------------------------------
 
-def writeinitializationmessage():
+def writeinitializationmessage(mess):
     """write the opening string in the messages file""" 
     with open(mess,'w') as log:
         log.write(time.asctime()+'   ---MINOSSE START---\n')
     return
 
-def writemessage(wrote):
+def writemessage(wrote,mess):
     """write a string in the messages file"""
     with open(mess,'a') as log:
         log.write(time.asctime()+'   '+wrote+'\n')
     return
 
-def writewarning(wrote):
+def writewarning(wrote,mess):
     """write a WARNING message"""
     writemessage('WARNING:'+wrote)
     return
 
-def writefatalerror(wrote):
+def writefatalerror(wrote,mess):
     """write an error message end exit from Minosse"""
     writemessage('FATAL:  '+wrote)
     writemessage('--- MINOSSE STOPS ABNORMALLY ---')
@@ -194,7 +161,6 @@ def find_queued_jobs(charge): # New function
         job = charge[jobid]
         if job['status'] == 'que':
             que_jobs[jobid] = job
-
     return que_jobs
 
 def sortbypriority(jobs): # New function
@@ -203,7 +169,6 @@ def sortbypriority(jobs): # New function
     for jobid in jobs:
         job = jobs[jobid]
         id_prior.append([jobid, job['priority']])
-
     id_prior.sort(key=lambda x: x[1], reverse=True)
     return id_prior  
 
@@ -238,8 +203,6 @@ def check_for_submissions(available,priority_list,queue): # New function
             free_ram -= job['RAM']
             free_hd -= job['HDmemory']
     return to_be_submitted
-        
-
 
 def choice(tests,allvar1): # Useless in new setup
     """Merge all the tests results finding the free machine"""
@@ -305,7 +268,7 @@ def endjob1(charge,subprocesses):## old function
         result=[job,subprocesses]
     return result
 
-def endjob(charge, status): # New function
+def endjob(charge, status,messf): # New function
     """find the ended jobs"""
     psaux = check_output("ps -aux | awk '{print $2}'", shell=True,text=True)
     running_processes = psaux.split('\n')[1:-1]
@@ -313,14 +276,12 @@ def endjob(charge, status): # New function
         job = charge[jobid]
         if job['status'] == 'run':
             pid = job['pid']
-            if !(pid in running_processes):
+            if not(pid in running_processes):
                 job['status'] = 'end'
-                writemessage('Job '+job['script']+' ended')
+                writemessage(f"Job {job['script']} ended",messf)
                 update_status(charge,job,-1)
                 ended  =  delete(jobid,charge)
-
     return charge, status
-                
 
 def delete(jobid,jobs): # New function
     """delete a job"""
@@ -333,7 +294,7 @@ def update_status(status,job,val): # New function
     status['RAM'] = status['RAM'] + job['RAM'] * val
     status['HDmemory'] = status['HDmemory'] + job['HDmemory'] * val
 
-def cleanstatus(status): # New function
+def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",messf="messages"): # New function
     """Clean up the machine status at startup"""
     # clean the status file
     status["status"] = "up"
@@ -343,11 +304,11 @@ def cleanstatus(status): # New function
     # clean minosse directory
     ls=os.listdir(Mdir)
     for i in range(len(ls)):
-        if ls[i].startswith(file5) or ls[i].startswith(file8):
+        if ls[i].startswith(remove) or ls[i].startswith(subjob):
             infile=ls[i].split('.')[0]
             os.remove(Mdir+infile+'.mns')
     # kill running jobs
-    charge = readallfile(file2)
+    charge = readallfile(chargef)
     for jobid in charge:
         job = charge[jobid]
         if job['status'] == 'run':
@@ -356,16 +317,15 @@ def cleanstatus(status): # New function
                 os.kill(int(pid),SIGTERM)
             except:
                 pass
-    writemessage('All jobs killed')
-    writeallfile(file2,{})
-    start = readallfile(file6)
+    writemessage('All jobs killed',mess=f"{Mdir}/{messf}")
+    writeallfile(chargef,{})
+    start = readallfile(statusf)
     start["status"] = "up"
-    writeallfile(file6,start)
-    writemessage('status machine cleaned')
+    writeallfile(statusf,start)
+    writemessage('status machine cleaned',mess=f"{Mdir}/{messf}")
     return status
 
-
-def checkdemon(file6): # Updated function
+def checkdemon(file6,file3,mess): # Updated function
     """Check if the demon must run or stop"""
     stop = readallfile(file6)
     if stop['status'] == 'stop':
@@ -373,11 +333,11 @@ def checkdemon(file6): # Updated function
         cleanstatus(status)
         stop['status'] = 'down'
         writeallfile(file6,stop)
-        writemessage('---MINOSSE STOPS---')
+        writemessage('---MINOSSE STOPS---',mess)
         sys.exit(0)
     return
 
-def checkdeletedjob(file7,file2,file8,file3): # Updated function
+def checkdeletedjob(file7,file2,file8,file3,mess): # Updated function
     """check the requests of deleting jobs"""
     writejob(Mdir,file8,file7)
     inp = readallfile(file7)
@@ -401,11 +361,11 @@ def checkdeletedjob(file7,file2,file8,file3): # Updated function
                             deleted = delete(id,alljobs)
                             update_status(status,tbdel,-1)
                         except:
-                            writewarning('Unable to kill job '+id)
+                            writewarning(f"Unable to kill job {id}",mess)
                     else:
                         deleted = delete(id,alljobs)
                 else:
-                    writewarning('trying to delete a job of another user')
+                    writewarning(f"trying to delete a job of another user",mess)
             if script:
                 for job in alljobs:
                     if job['script'] == script and job['user'] == duser:
@@ -416,17 +376,15 @@ def checkdeletedjob(file7,file2,file8,file3): # Updated function
                                 deleted = delete(job['id'],alljobs)
                                 update_status(status,job,-1)
                             except:
-                                writewarning('Unable to kill job '+script)
+                                writewarning(f"Unable to kill job {script}",mess)
                         else:
                             deleted = delete(job['id'],alljobs)
             if deleted:
-                writemessage('job '+script+' deleted')
-
+                writemessage(f"job {script} deleted",mess)
     writeallfile(file2,alljobs)
     inp = {}
     writeallfile(file7,inp)
     return
-
 
 def writejob(Mdir,fileA,fileB):
     """check the new submitted jobs"""
@@ -470,14 +428,14 @@ def getpid(pid,opt):
         get=pppp
     return get
 
-def ifrunning():
+def ifrunning(Mdir):
     """check if minosse is running"""
     ps=os.popen('ps -eo args | grep Minosse.py').readlines()
     status='down'
     a=[]
     for line in ps:
         path=line.split()[1]
-        if path == Mdir+'Minosse.py':
+        if path == f"{Mdir}Minosse.py":
             status='ok'
             a.append('ok')
     if len(a) > 1 :

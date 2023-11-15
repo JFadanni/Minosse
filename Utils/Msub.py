@@ -1,5 +1,11 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+import getpass
+import socket
+import random
+import time
+from   optparse   import OptionParser
+from    Mutil      import *
 
 """ Minosse a Python-based batch system
 
@@ -23,53 +29,37 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
+__version__ = "Revision: 1.3.0"
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
-
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-#Mdir="$instdir/"
-Mdir = "./Minosse_mns/" # for developing only
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
+Mdir="$instdir/"
 file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','chain'
           ,'subtime','runtime']
 
+#varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+#          ,'priority','pid','Njob','script','user','chain'
+#          ,'subtime','runtime']
 ##------------------------------------------------------------------------------
 ## Imports
 ##------------------------------------------------------------------------------
 
-from   optparse   import OptionParser
-import getpass
-import socket
-import random
-import time
 
 ##------------------------------------------------------------------------------
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version="%prog 1.1.0") # fix version
+parser = OptionParser(usage="%prog", version=f"%prog {__version__}") # fix version
 
 parser.add_option("-c", "--cpus",
                   action="store", dest="cpus", default="1", type="int", 
@@ -77,9 +67,9 @@ parser.add_option("-c", "--cpus",
 parser.add_option("-m", "--memory",
                   action="store", dest="memory", default="700", type="int",
                   help="RAM memory requirement [default=700 MB]")
-parser.add_option("-d", "--harddisck",
-                  action="store", dest="HD", default="00", type="int",
-                  help="HD scratch space required [default=00 GB]")
+#parser.add_option("-d", "--harddisck",
+#                  action="store", dest="HD", default="00", type="int",
+#                  help="HD scratch space required [default=00 GB]")
 parser.add_option("-p", "--priority",
                   action="store", dest="priority", default="70", type="int",
                   help="set the priority of a job [default=70]")
@@ -96,11 +86,11 @@ parser.add_option("-l", "--link",
 ## Main program
 ##------------------------------------------------------------------------------
 
-#ifrunning() #exclude checks while testing "Msub.py"
+#ifrunning(Mdir)
 architecture= os.uname()[-1]
 id=str(random.randint(1, 1000000))
 
-varvalues = [socket.gethostname(),options.cpus,options.memory,options.HD,architecture,'que',
+varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
          options.priority,'','',options.file ,getpass.getuser(),options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']
 
 job_prop = {}

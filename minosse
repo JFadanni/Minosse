@@ -26,7 +26,7 @@ case "$1" in
 			echo -e '\nMinosse is already running\n'
 			exit
 		else 
-                        cd $instdir
+            cd $instdir
 			nohup $instdir/Minosse.py > /dev/null 2>&1 &
 			echo 'Starting Minosse ...'
 			sleep 2

@@ -1,5 +1,14 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import os
+import sys
+import time
+import json
+from   subprocess import *
+
+from    Mutil      import *
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -24,18 +33,13 @@ __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-#Mdir="$instdir/"
-Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
+Mdir="$instdir/"
+#Mdir = "/home/jacopo/Python_developing/Minosse_dev/Minosse_test/Minosse_mns/" # for developing only
 file1=Mdir+'nodes'
 file2=Mdir+'charge'
 file3=Mdir+'status'
@@ -54,29 +58,16 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-import sys
-import os
-from   subprocess import *
-import time
-import json
-
-##------------------------------------------------------------------------------
-## variable names
-##------------------------------------------------------------------------------
 
 
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
 
-#ifrunning()
-writeinitializationmessage()
+ifrunning(Mdir)
+writeinitializationmessage(mess)
 status=readallfile(file3)
-#status=cleanstatus(status)
+status=cleanstatus(status,Mdir,file2,file6)
 writeallfile(file3,status)
 realvalue=readallfile(file1)
 defaults=readallfile(file4)
@@ -105,19 +96,19 @@ while 1:
                 pid=subpro.pid
                 errors=subpro.errors
                 if (errors):
-                    writewarning('submission error '+str(errors))
+                    writewarning(f"submission error {str(errors)}",mess)
                 job['pid'] = pid
                 job['status'] = 'run'
                 job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
-                writemessage('Job '+script+' submitted')
+                writemessage(f"Job {script} submitted",mess)
                 update_status(status,job,1)
             except:
-                writewarning(' Something wrong in the '+script+' script')
+                writewarning(f"Unable to run, something wrong in the {script} script",mess)
                 deleted = delete(jobid,charge)
                 if deleted:
-                    writewarning('Job aborted')
+                    writewarning('Job aborted',mess)
                 else:
-                    writewarning('Unable to run or delete job')
+                    writewarning('Unable to run or delete job',mess)
         writeallfile(file2,charge)
         writeallfile(file3,status)
     else:
@@ -126,13 +117,13 @@ while 1:
     charge=readallfile(file2)
     status=readallfile(file3)
     ## check ended jobs
-    charge, status = endjob(charge,status)
+    charge, status = endjob(charge,status,mess)
     writeallfile(file3,status)
     writeallfile(file2,charge)
     ## check for jobs to be deleted
     checkdeletedjob(file7,file2,file8,file3)
     ## check the stop file wich control the minosse  demon
-    checkdemon(file6)
+    checkdemon(file6,file3,mess)
     ## write in the charge file the new submitted job
     writejob(Mdir,file5,file2)
     ## waiting time

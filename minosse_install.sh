@@ -126,6 +126,9 @@ if [[ -z $linkdir ]]; then
 	linkdir='/usr/local/bin/'
 fi
 
+
+sed -ei "s|\$linkdir|$linkdir|g" $instdir/minosse_uninst.sh
+
 if [[ -d $linkdir ]]; then
 	cd $linkdir
 else

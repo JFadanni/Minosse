@@ -1,6 +1,12 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import random
+import getpass
+from   optparse   import OptionParser
+
+from    Mutil      import *
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -25,34 +31,14 @@ __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import *
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
 file8='remove'
 mess=Mdir+'messages'
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-from   optparse   import OptionParser
-import random
-import getpass
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -78,7 +64,7 @@ parser.add_option("-a", "--all",
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+ifrunning(Mdir)
 
 RND=str(random.randint(1, 1000000))
 
