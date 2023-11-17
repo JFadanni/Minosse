@@ -25,26 +25,30 @@ __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
 __version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
+
 ##------------------------------------------------------------------------------
-## Common Imports
+## Imports
 ##------------------------------------------------------------------------------
 
-from    Mutil      import *
+import os
+from   signal import SIGTERM
+import sys
+import time
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/"
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
-mess=Mdir+'messages'
+MDIR="$instdir/"
+FILE1=MDIR+'nodes'
+FILE2=MDIR+'charge'
+FILE3=MDIR+'status'
+FILE4=MDIR+'defaults'
+FILE5='subjob'
+FILE6=MDIR+'conf'
+FILE7=MDIR+'delete'
+FILE8='remove'
+MESS=MDIR+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
@@ -54,14 +58,6 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-import os
-import sys
-import time
-from   signal import SIGTERM 
 
 ##------------------------------------------------------------------------------
 ## write messages
@@ -69,27 +65,23 @@ from   signal import SIGTERM
 
 def writeinitializationmessage():
     """write the opening string in the messages file""" 
-    with open(mess,'w') as log:
+    with open(MESS,'w',encoding='utf-8') as log:
         log.write(time.asctime()+'   ---MINOSSE START---\n')
-    return
 
 def writemessage(wrote):
     """write a string in the messages file"""
-    with open(mess,'a') as log:
+    with open(MESS,'a',encoding='utf-8') as log:
         log.write(time.asctime()+'   '+wrote+'\n')
-    return
 
 def writewarning(wrote):
     """write a WARNING message"""
     writemessage('WARNING:'+wrote)
-    return
 
 def writefatalerror(wrote):
     """write an error message end exit from Minosse"""
     writemessage('FATAL:  '+wrote)
     writemessage('--- MINOSSE STOPS ABNORMALLY ---')
     sys.exit(0)
-    return
 
 ##------------------------------------------------------------------------------
 ## read files
@@ -101,30 +93,30 @@ def readallfile(filename):
     varvalue=[]
     filecomplete='false'
     ## impose the completeness of the file
-    while (filecomplete=='false'):     
+    while filecomplete=='false':
         try:
-            with open(filename+'.mns','r') as filein:
+            with open(filename+'.mns','r',encoding='utf-8') as filein:
                 output=filein.read()
         except:
-            writefatalerror(filename+' file not found in your minosse directory!') 
+            writefatalerror(filename+' file not found in your minosse directory!')
         output=output.split('\n')
-        for i in range(len(output)):
-            if output[i].strip() == '!end':
+        for outputi in output:
+            if outputi.strip() == '!end':
                 filecomplete='true'
     ## divide in two lists the first one with the variable name
     ## the second one with the variable value
-    for i in range(len(output)):
-        case=output[i].strip()
-        if case == '' or case == '!start' or case == '!end':
+    for outputi in output:
+        case=outputi.strip()
+        if case in("","!start","!end"):
             pass
         else:
-            element=output[i].split(':')
+            element=outputi.split(':')
             varname.append(element[0].strip())
             if element[1].strip() == '':
                 element[1]='none'
             varvalue.append(element[1].strip())
     allvar=[varname,varvalue]
-    return allvar 
+    return allvar
 
 ##------------------------------------------------------------------------------
 ## write files
@@ -132,12 +124,11 @@ def readallfile(filename):
 
 def writeallfile(filename,allvar):
     """Write an entire mns file """
-    with open(filename+'.mns','w') as fileout:
+    with open(filename+'.mns','w',encoding='utf-8') as fileout:
         fileout.write('!start'+'\n')
         for i in range(len(allvar[0])):
             fileout.write(str(allvar[0][i])+': '+str(allvar[1][i])+'\n')
         fileout.write('!end\n')
-    return
 
 ##------------------------------------------------------------------------------
 ## find or find and replace
@@ -163,7 +154,7 @@ def replace(allvar,value,varname,index):
 ##------------------------------------------------------------------------------
 ## Miscellaneous
 ##------------------------------------------------------------------------------
-    
+
 def applydefaults(allvar1,allvar2,varname):
     """Apply the default settings content in the default.mns file"""
     def1=findall(allvar2,varname)
@@ -177,8 +168,8 @@ def difference(allvar1,allvar2,varname):
     diffvar=[]
     var1=findall(allvar1,varname)
     var2=findall(allvar2,varname)
-    for i in range(len(var1)):
-        diffvar.append(int(var1[i])-int(var2[i]))
+    for i,var1i in enumerate(var1):
+        diffvar.append(int(var1i)-int(var2[i]))
     return diffvar
 
 def testalgebric(allvar1,allvar2,allvar3,varname):
@@ -188,12 +179,12 @@ def testalgebric(allvar1,allvar2,allvar3,varname):
     index2=[]
     ref=difference(allvar1,allvar2,varname)
     req=findall(allvar3,varname)
-    for i in range(len(req)):
-        for j in range(len(ref)):
-                if ref[j]-int(req[i]) >= 0:
-                    free.append(ref[j]-int(req[i]))
-                    index1.append(i)
-                    index2.append(j)
+    for i,reqi in enumerate(req):
+        for j,refj in enumerate(ref):
+            if refj-int(reqi) >= 0:
+                free.append(refj-int(reqi))
+                index1.append(i)
+                index2.append(j)
     freepos=[free,index1,index2]
     return freepos
 
@@ -204,12 +195,12 @@ def testtext(allvar1,allvar2,varname):
     index2=[]
     ref=findall(allvar1,varname)
     req=findall(allvar2,varname)
-    for i in range(len(req)):
-        for j in range(len(ref)):
-                if ref[j] == req[i] or ref[j] == 'none' or req[i] == 'none':
-                    free.append(ref[j])
-                    index1.append(i)
-                    index2.append(j)
+    for i,reqi in enumerate(req):
+        for j, refj in enumerate(ref):
+            if refj == reqi or refj == 'none' or reqi == 'none':
+                free.append(refj)
+                index1.append(i)
+                index2.append(j)
     freepos=[free,index1,index2]
     return freepos
 
@@ -237,9 +228,9 @@ def prior(trial,allvar):
     ref=findall(allvar,'priority')
     for i in range(len(trial[1])):
         prio.append(int(ref[trial[1][i]]))
-    Mprio=prio.index(max(prio))
-    Fprio=trial[1][Mprio]
-    return Fprio
+    mprio=prio.index(max(prio))
+    fprio=trial[1][mprio]
+    return fprio
 
 def newstatus(allvar1,allvar2,varname,job):
     """Modify the status after the job choice"""
@@ -263,8 +254,8 @@ def endjob(charge,subprocesses):
     ended='no'
     for i in range(len(subprocesses[0])):
         p.append(subprocesses[0][i].poll())
-    for i in range(0,len(p)):
-        if p[i] != None:
+    for i,pi in enumerate(p):
+        if pi is not None:
             ended=i
     if ended == 'no':
         job='no'
@@ -273,19 +264,19 @@ def endjob(charge,subprocesses):
         sta=findall(charge,'Njob')
         job=sta.index(str(subprocesses[1][ended]))
         subprocesses[0].pop(ended)
-        subprocesses[1].pop(ended)        
+        subprocesses[1].pop(ended)
         result=[job,subprocesses]
     return result
 
-def delete(charge,ended,varnames):
+def delete(charge,ended,names):
     """delete a job"""
     index=[]
-    for j in range(len(varnames)):
+    for varname in names:
         n=0
         for i in range(len(charge[0])):
-            if varnames[j] == charge[0][i]:
+            if varname == charge[0][i]:
                 if n == ended:
-                    index.append(i)    
+                    index.append(i)
                 n=n+1
     index.sort()
     for i in range(len(index)-1,-1,-1):
@@ -308,28 +299,28 @@ def cleanstatus(status):
     status=replace(status,'0','RAM',0)
     status=replace(status,'0','Ncpu',0)
     status=replace(status,'0','HDmemory',0)
-    ls=os.listdir(Mdir)
-    for i in range(len(ls)):
-        if ls[i].startswith(file5) or ls[i].startswith(file8):
-            infile=ls[i].split('.')[0]
-            os.remove(Mdir+infile+'.mns')
-    charge=readallfile(file2)
+    ls=os.listdir(MDIR)
+    for lsi in ls:
+        if lsi.startswith(FILE5) or lsi.startswith(FILE8):
+            infile=lsi.split('.')[0]
+            os.remove(MDIR+infile+'.mns')
+    charge=readallfile(FILE2)
     pid=findall(charge,'pid')
     run=findall(charge,'status')
-    for i in range(len(pid)):
+    for i, pidi in enumerate(pid):
         if run[i] == 'run':
             try:
-                tokill=getpid(pid[i],'all')
-                os.kill(int(pid[i]),SIGTERM)
-                for j in range(len(tokill)):
-                    os.kill(int(tokill[j]),SIGTERM)
+                tokill=getpid(pidi,'all')
+                os.kill(int(pidi),SIGTERM)
+                for kill in tokill:
+                    os.kill(int(kill),SIGTERM)
             except:
                 pass
     writemessage('All jobs killed')
-    writeallfile(file2,[[],[]])
-    start=readallfile(file6)
+    writeallfile(FILE2,[[],[]])
+    start=readallfile(FILE6)
     start=replace(start,'up','status',0)
-    writeallfile(file6,start)
+    writeallfile(FILE6,start)
     writemessage('status machine cleaned')
     return status
 
@@ -337,76 +328,74 @@ def checkdemon(file6):
     """Check if the demon must run or stop"""
     stop=readallfile(file6)
     if findall(stop,'status')[0] == 'stop':
-        status=readallfile(file3)
+        status=readallfile(FILE3)
         cleanstatus(status)
         stop=replace(stop,'down','status',0)
         writeallfile(file6,stop)
         writemessage('---MINOSSE STOPS---')
         sys.exit(0)
-    return
 
-def checkdeletedjob(file7,file2,varnames):
+def checkdeletedjob(file7,file2,variables):
     """check the requests of deleting jobs"""
-    writejob(Mdir,file8,file7)
+    writejob(MDIR,FILE8,file7)
     inp=readallfile(file7)
     if inp != [[],[]] :
-        id=findall(inp,'id')
+        jid=findall(inp,'id')
         script=findall(inp,'script')
         opt=findall(inp,'priority')
         user=findall(inp,'user')
-        for i in range(len(id)):
-            if id[i] != 'none' or script[i] != 'none' :
+        for i, idi in enumerate(jid):
+            if idi != 'none' or script[i] != 'none' :
                 charge=readallfile(file2)
-                Ljob=findall(charge,'id')
-                Lscript=findall(charge,'script')
-                Luser=findall(charge,'user')
-                for j in range(len(Ljob)):
-                     if (Ljob[j] == id[i] or Lscript[j] == script[i]) and ( Luser[j] == user[i]  or user[i] == 'root'):
-                          writemessage('killing job '+Lscript[j])
-                          if findall(charge,'status')[j] == 'run':
-                               try:
-                                   pid=findall(charge,'pid')[j]
-                                   tokill=getpid(pid,opt[i])
-                                   if opt[i] == 'all':
-                                      os.kill(int(pid),SIGTERM)
-                                   for k in range(len(tokill)):
-                                      os.kill(int(tokill[k]),SIGTERM)
-                               except:
-                                   pass
-                                   ## patch 16 june 2008
-                                   ##charge=delete(charge,j,varnames)
-                                   ##writeallfile(file2,charge)
-                                   ##inp=replace(inp,'none','id',i)
-                                   ##writeallfile(file7,inp)
-                          else:
-                               charge=delete(charge,j,varnames)
-                               writeallfile(file2,charge)
-                               ##inp=replace(inp,'none','id',i)
-                               ##writeallfile(file7,inp)
+                ljob=findall(charge,'id')
+                lscript=findall(charge,'script')
+                luser=findall(charge,'user')
+                for j, ljobj in enumerate(ljob):
+                    if ((ljobj == idi or lscript[j] == script[i]) and
+                        ( luser[j] == user[i]  or user[i] == 'root')):
+                        writemessage('killing job '+lscript[j])
+                        if findall(charge,'status')[j] == 'run':
+                            try:
+                                pid=findall(charge,'pid')[j]
+                                tokill=getpid(pid,opt[i])
+                                if opt[i] == 'all':
+                                    os.kill(int(pid),SIGTERM)
+                                for kill in tokill:
+                                    os.kill(int(kill),SIGTERM)
+                            except:
+                                pass
+                                ## patch 16 june 2008
+                                ##charge=delete(charge,j,varnames)
+                                ##writeallfile(file2,charge)
+                                ##inp=replace(inp,'none','id',i)
+                                ##writeallfile(file7,inp)
+                        else:
+                            charge=delete(charge,j,variables)
+                            writeallfile(file2,charge)
+                            ##inp=replace(inp,'none','id',i)
+                            ##writeallfile(file7,inp)
         inp=[[], []]
         writeallfile(file7,inp)
-    return
 
-def writejob(Mdir,fileA,fileB):
+def writejob(mdir,filea,fileb):
     """check the new submitted job"""
-    ls=os.listdir(Mdir)
-    for i in range(len(ls)):
-        if ls[i].startswith(fileA):
+    lsoutput=os.listdir(mdir)
+    for lsi in lsoutput:
+        if lsi.startswith(filea):
             tmp=[]
             charge=[[],[]]
-            infile=ls[i].split('.')[0]
-            tmp=readallfile(Mdir+infile)
-            scriptA=findall(tmp,'script')
-            ch=readallfile(fileB)
-            scriptB=findall(ch,'script')
-            if scriptA[0] in scriptB :
-               pass
+            infile=lsi.split('.')[0]
+            tmp=readallfile(mdir+infile)
+            scripta=findall(tmp,'script')
+            inch=readallfile(fileb)
+            scriptb=findall(inch,'script')
+            if scripta[0] in scriptb :
+                pass
             else:
-               charge[0]=ch[0]+tmp[0]
-               charge[1]=ch[1]+tmp[1]
-               writeallfile(fileB,charge)
-            os.remove(Mdir+infile+'.mns')
-    return
+                charge[0]=inch[0]+tmp[0]
+                charge[1]=inch[1]+tmp[1]
+                writeallfile(fileb,charge)
+            os.remove(mdir+infile+'.mns')
 
 def getpid(pid,opt):
     """extract the pid of all child processes"""
@@ -414,20 +403,20 @@ def getpid(pid,opt):
     ps=os.popen('pstree -lp '+str(pid)).readlines()
     for line in ps:
         a,b,pp=[],[],[]
-        for j in range(len(line)):
-            if '(' == line[j]:
+        for j, linej in enumerate(line):
+            if '(' == linej:
                 a.append(j)
-            if ')' == line[j]:
+            if ')' == linej:
                 b.append(j)
-        for j in range(len(a)):
+        for j, aj in enumerate(a):
             p=''
-            for k in range(a[j]+1,b[j]):
+            for k in range(aj+1,b[j]):
                 p=p+str((line[k]))
             pp.append(p)
             pall.append(p)
         ppp.append(pp)
-    for i in range(len(ppp)):
-        pppp.append(ppp[i][len(ppp[i])-1])
+    for pppi in ppp:
+        pppp.append(pppi[len(pppi)-1])
     if opt == 'all':
         get=pall
     else:
@@ -441,7 +430,7 @@ def ifrunning():
     a=[]
     for line in ps:
         path=line.split()[1]
-        if path == Mdir+'Minosse.py':
+        if path == MDIR+'Minosse.py':
             status='ok'
             a.append('ok')
     if len(a) > 1 :
@@ -456,16 +445,15 @@ def ifrunning():
         print ('no minosse demon running!')
         print('activate minosse with:\t sudo minosse start')
         print ('-'*40,'\n')
-        sys.exit(0)     
-    return
+        sys.exit(0)
 
 def chainjob(charge):
     """check if the jobs are chained"""
     script=findall(charge,'script')
     chain=findall(charge,'chain')
-    for i in range(len(chain)):
-        if chain[i] != 'none':
-            for j in range(len(script)):
-                if chain[i] == script[j]:
+    for i, chaini in enumerate(chain):
+        if chaini != 'none':
+            for scriptj in script:
+                if chaini == scriptj:
                     charge=delete(charge,i,varnames)
     return charge

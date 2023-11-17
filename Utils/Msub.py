@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-""" Minosse a Python-based batch system
+"""
+Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
 
@@ -21,30 +22,28 @@ You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+__version__ = "1.3.0"
 __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
 
-from    Mutil      import *
+from   argparse import ArgumentParser
+import getpass
+import os
+import random
+import socket
+import time
+
+from    Mutil      import ifrunning, writeallfile
+
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-Mdir="$instdir/"
-file1=Mdir+'nodes'
-file2=Mdir+'charge'
-file3=Mdir+'status'
-file4=Mdir+'defaults'
-file5='subjob'
-file6=Mdir+'conf'
-file7=Mdir+'delete'
-file8='remove'
-mess=Mdir+'messages'
+MDIR="$instdir/"
+FILE5='subjob'
+MESS=MDIR+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
@@ -55,37 +54,27 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
           ,'subtime','runtime']
 
 ##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-
-from   optparse   import OptionParser
-import getpass
-import socket
-import random
-import time
-
-##------------------------------------------------------------------------------
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(usage="%prog", version="%prog 1.0.0")
 
-parser.add_option("-c", "--cpus",
-                  action="store", dest="cpus", default="1", type="int", 
+parser.add_argument("-c", "--cpus",
+                  action="store", dest="cpus", default="1", type="int",
                   help="nomber of cpus required [default=1]")
-parser.add_option("-m", "--memory",
+parser.add_argument("-m", "--memory",
                   action="store", dest="memory", default="700", type="int",
                   help="RAM memory requirement [default=700 MB]")
-parser.add_option("-d", "--harddisck",
+parser.add_argument("-d", "--harddisck",
                   action="store", dest="HD", default="00", type="int",
                   help="HD scratch space required [default=00 GB]")
-parser.add_option("-p", "--priority",
+parser.add_argument("-p", "--priority",
                   action="store", dest="priority", default="70", type="int",
                   help="set the priority of a job [default=70]")
-parser.add_option("-f", "--file",
+parser.add_argument("-f", "--file",
                   action="store", dest="file",
                   help="set the name of the job script")
-parser.add_option("-l", "--link",
+parser.add_argument("-l", "--link",
                   action="store", dest="chain", default="none",
                   help="set the name of the chained job [default=none]")
 
@@ -97,10 +86,11 @@ parser.add_option("-l", "--link",
 
 ifrunning()
 architecture= os.uname()[-1]
-id=str(random.randint(1, 1000000))
+ID=str(random.randint(1, 1000000))
 
 subjob=[varnames,
         [socket.gethostname(),options.cpus,options.memory,options.HD,architecture,'que',
-         options.priority,'','',options.file ,getpass.getuser(),id,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
+         options.priority,'','',options.file ,getpass.getuser(),ID,options.chain,
+         time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
-writeallfile(Mdir+file5+id,subjob)
+writeallfile(MDIR+FILE5+ID,subjob)
