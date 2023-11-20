@@ -23,7 +23,7 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = "Jacopo Fadanni"
 __date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
+__version__ = '1.3.0'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
 ##------------------------------------------------------------------------------
@@ -59,13 +59,13 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
 
 parser.add_argument("-v", "--verbose",
                   action="store_true", dest="verbose", default=False,
                   help="make lots of noise")
 
-(options, args) = parser.parse_args()
+args = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -73,13 +73,13 @@ parser.add_argument("-v", "--verbose",
 
 ifrunning()
 
-print ('Minosse batch system v1.0.0')
+print (f'Minosse batch system v{__version__}')
 print ('-'*60)
 
 charge=readallfile(FILE2)
 user=findall(charge,'user')
 
-if options.verbose:
+if args.verbose:
     status=findall(charge,'status')
     if not status:
         print ('  System free: no job queued or running')

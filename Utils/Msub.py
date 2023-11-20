@@ -57,20 +57,20 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
 
 parser.add_argument("-c", "--cpus",
-                  action="store", dest="cpus", default="1", type="int",
+                  action="store", dest="cpus", default=1, type=int,
                   help="nomber of cpus required [default=1]")
 parser.add_argument("-m", "--memory",
-                  action="store", dest="memory", default="700", type="int",
+                  action="store", dest="memory", default=700, type=int,
                   help="RAM memory requirement [default=700 MB]")
 parser.add_argument("-d", "--harddisck",
-                  action="store", dest="HD", default="00", type="int",
+                  action="store", dest="HD", default=00, type=int,
                   help="HD scratch space required [default=00 GB]")
 parser.add_argument("-p", "--priority",
-                  action="store", dest="priority", default="70", type="int",
-                  help="set the priority of a job [default=70]")
+                  action="store", dest="priority", default=50, type=int,
+                  help="set the priority of a job [default=50]")
 parser.add_argument("-f", "--file",
                   action="store", dest="file",
                   help="set the name of the job script")
@@ -78,7 +78,7 @@ parser.add_argument("-l", "--link",
                   action="store", dest="chain", default="none",
                   help="set the name of the chained job [default=none]")
 
-(options, args) = parser.parse_args()
+args = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -89,8 +89,8 @@ architecture= os.uname()[-1]
 ID=str(random.randint(1, 1000000))
 
 subjob=[varnames,
-        [socket.gethostname(),options.cpus,options.memory,options.HD,architecture,'que',
-         options.priority,'','',options.file ,getpass.getuser(),ID,options.chain,
+        [socket.gethostname(),args.cpus,args.memory,args.HD,architecture,'que',
+         args.priority,'','',args.file ,getpass.getuser(),ID,args.chain,
          time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
 
 writeallfile(MDIR+FILE5+ID,subjob)

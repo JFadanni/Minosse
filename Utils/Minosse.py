@@ -45,7 +45,7 @@ FILE2=MDIR+'charge'
 FLIE3=MDIR+'status'
 FILE4=MDIR+'defaults'
 FILE5='subjob'
-FILE5=MDIR+'conf'
+FILE6=MDIR+'conf'
 FILE7=MDIR+'delete'
 FILE8='remove'
 MESS=MDIR+'messages'
@@ -156,7 +156,7 @@ while 1:
         charge=util.delete(charge,job,varnames)
         util.writeallfile(FILE2,charge)
     ## check the stop file wich control the minosse  demon
-    util.checkdemon(FILE5)
+    util.checkdemon(FILE6)
     ## check if a job has been deleted from the que system
     util.checkdeletedjob(FILE7,FILE2,varnames)
     ## write in the charge file the new submitted job

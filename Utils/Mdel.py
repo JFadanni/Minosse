@@ -51,7 +51,7 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
 
 parser.add_argument("-j", "--job",
                   action="store", dest="job",  default="none",
@@ -65,7 +65,7 @@ parser.add_argument("-a", "--all",
                   action="store_true", dest="all", default=False,
                   help="kill all processes from the top script to the last child")
 
-(options, args) = parser.parse_args()
+args = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -75,10 +75,10 @@ ifrunning()
 
 RND=str(random.randint(1, 1000000))
 
-OPT ="all" if options.all else "none"
+OPT ="all" if args.all else "none"
 
 deljob=[['script','id','priority','user'],
-        [options.script,options.job,OPT,getpass.getuser()]]
+        [args.script,args.job,OPT,getpass.getuser()]]
 
 
 writeallfile(MDIR+FILE8+RND,deljob)
