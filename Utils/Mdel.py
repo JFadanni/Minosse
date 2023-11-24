@@ -21,8 +21,8 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
+__date__ = "24th Nov 2023"
+__version__ = '1.3.1'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
 from argparse import ArgumentParser

@@ -16,7 +16,7 @@
 #You should have received a copy of the GNU General Public License
 #along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 #
-#Minosse version 1.3.0, 12th Nov 2023
+#Minosse version 1.3.1, 24th Nov 2023
 #---------------------------------------------------------------------------------
 
 if [[ $USER != 'root' ]]; then

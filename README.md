@@ -1,5 +1,5 @@
 
-# **Minosse** version 1.3.0, 12th Nov 2023
+# **Minosse** version 1.3.1, 24th Nov 2023
 
 Minosse is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
