@@ -24,8 +24,8 @@ To install Minosse two steps are needed:
 1. Run the configuration script ```minosse_config.sh``` to set the working environment:  
 $ ``` ./minosse_config.sh```
 
-2. Run the installer script ```minosse_inst.sh``` as root to copy Minosse files in the installation directory:  
-$ ```sudo ./minosse_inst.sh```
+2. Run the installer script ```minosse_install.sh``` as root to copy Minosse files in the installation directory:  
+$ ```sudo ./minosse_install.sh```
 
 Here is an example of the nodes.mns:
 
