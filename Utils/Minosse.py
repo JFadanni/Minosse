@@ -59,6 +59,7 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 
 
 
+
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
@@ -88,17 +89,14 @@ while 1:
             user = job['user']
             script = job['script']
             try:
-                subpro=Popen([f"runuser -u {user} {script}"],shell=True)
-                pid=subpro.pid
-                errors=subpro.errors
-                if (errors):
-                    writewarning(f"submission error {str(errors)}",mess)
-                job['pid'] = pid
+                # no shell: the script name must not be able to run commands as root
+                subpro=Popen(["runuser","-u",user,"--",script])
+                job['pid'] = subpro.pid
                 job['status'] = 'run'
                 job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
                 writemessage(f"Job {script} submitted",mess)
                 update_status(status,job,1)
-            except:
+            except OSError:
                 writewarning(f"Unable to run, something wrong in the {script} script",mess)
                 deleted = delete(jobid,charge)
                 if deleted:
@@ -117,10 +115,11 @@ while 1:
     writeallfile(file3,status)
     writeallfile(file2,charge)
     ## check for jobs to be deleted
-    checkdeletedjob(file7,file2,file8,file3)
+    writejob(requestdir(Mdir),file8,file7,mess)
+    checkdeletedjob(file7,file2,file3,mess)
     ## check the stop file wich control the minosse  demon
-    checkdemon(file6,file3,mess)
+    checkdemon(file6,file2,file3,mess)
     ## write in the charge file the new submitted job
-    writejob(Mdir,file5,file2)
+    writejob(requestdir(Mdir),file5,file2,mess)
     ## waiting time
     time.sleep(1)

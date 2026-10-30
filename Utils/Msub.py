@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
-import getpass
+import pwd
 import socket
 import random
 import time
@@ -46,7 +46,7 @@ mess=Mdir+'messages'
 
 varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','chain'
-          ,'subtime','runtime']
+          ,'subtime','runtime','HDmemory','id']
 
 ##------------------------------------------------------------------------------
 ## Loads defaults
@@ -55,6 +55,7 @@ defaults = readallfile(file4)
 cpus = defaults['Ncpu']
 RAM = defaults['RAM']
 priority = defaults['priority']
+HD = defaults['HDmemory']
 
 ##------------------------------------------------------------------------------
 ## Flags
@@ -83,6 +84,9 @@ parser.add_option("-l", "--link",
 
 (options, args) = parser.parse_args()
 
+if not options.file:
+    parser.error("the job script is required: -f path/scriptname")
+
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
@@ -90,9 +94,14 @@ parser.add_option("-l", "--link",
 #ifrunning(Mdir)
 architecture= os.uname()[-1]
 id=str(random.randint(1, 1000000))
+# the demon does not run in the submission directory
+script = os.path.abspath(options.file)
+# not getpass.getuser(): it trusts $LOGNAME and $USER
+user = pwd.getpwuid(os.getuid()).pw_name
 
 varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
-         options.priority,'','',options.file ,getpass.getuser(),options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']
+         options.priority,'','',script,user,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
+         HD,id]
 
 job_prop = {}
 for vname, vval in zip(varnames, varvalues):
@@ -100,4 +109,4 @@ for vname, vval in zip(varnames, varvalues):
 
 subjob = {id: job_prop}
 
-writeallfile(Mdir+file5+id,subjob)
+writeallfile(requestdir(Mdir)+file5+id,subjob)

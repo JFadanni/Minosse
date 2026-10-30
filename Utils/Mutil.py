@@ -5,8 +5,10 @@ import os
 import sys
 import time
 import json
+import math
+import pwd
+from   stat   import S_ISREG
 from   signal import SIGTERM
-from   subprocess import check_output
 
 """ Minosse a Python-based batch system
 
@@ -51,19 +53,26 @@ def writemessage(wrote,mess):
 
 def writewarning(wrote,mess):
     """write a WARNING message"""
-    writemessage('WARNING:'+wrote)
+    writemessage('WARNING:'+wrote,mess)
     return
 
 def writefatalerror(wrote,mess):
     """write an error message end exit from Minosse"""
-    writemessage('FATAL:  '+wrote)
-    writemessage('--- MINOSSE STOPS ABNORMALLY ---')
+    writemessage('FATAL:  '+wrote,mess)
+    writemessage('--- MINOSSE STOPS ABNORMALLY ---',mess)
     sys.exit(0)
     return
 
 ##------------------------------------------------------------------------------
 ## read files
 ##------------------------------------------------------------------------------
+
+def requestdir(Mdir):
+    """The world-writable directory where users drop their requests
+
+    It is kept apart from Mdir: Python imports modules from the directory of
+    the scripts, so Mdir must not be writable by users."""
+    return Mdir+'requests/'
 
 def readallfile(filename):
     """Read an entire mns file and store it in a dictionary"""
@@ -77,9 +86,16 @@ def readallfile(filename):
 ##------------------------------------------------------------------------------
 
 def writeallfile(filename,allvar):
-    """Write an entire mns file """
-    with open(filename+'.mns','w') as fileout:
+    """Write an entire mns file
+
+    The file is written under a hidden temporary name and then renamed, so
+    that readers never see it half written."""
+    dirname, basename = os.path.split(filename)
+    tmp = os.path.join(dirname, '.'+basename+'.tmp')
+    with open(tmp,'w') as fileout:
         json.dump(allvar,fileout,indent=2)
+    os.chmod(tmp,0o644)
+    os.replace(tmp,filename+'.mns')
     return
 
 
@@ -87,18 +103,17 @@ def writeallfile(filename,allvar):
 ## Miscellaneous
 ##------------------------------------------------------------------------------
     
+def isundefined(value):
+    """True for a missing value: None or NaN"""
+    return value is None or (isinstance(value,float) and math.isnan(value))
+
 def applydefaults(charge,defaults): # May be useless
     """Apply the default settings if left undefined"""
     for jobid in charge:
         job = charge[jobid]
-        if job['RAM'] == float("NaN"):
-            charge[jobid]['RAM'] = defaults['RAM']
-        if job['Ncpu'] == float("NaN"):
-            charge[jobid]['Ncpu'] = defaults['Ncpu']
-        if job['HDmemory'] == float("NaN"):
-            charge[jobid]['HDmemory'] = defaults['HDmemory']
-        if job['priority'] == float("NaN"):
-            charge[jobid]['priority'] = defaults['priority']
+        for key in ('RAM','Ncpu','HDmemory','priority'):
+            if isundefined(job.get(key)):
+                job[key] = defaults[key]
     return charge
 
 def find_queued_jobs(charge): # New function
@@ -151,19 +166,32 @@ def check_for_submissions(available,priority_list,queue): # New function
             free_hd -= job['HDmemory']
     return to_be_submitted
 
+def isrunning(pid):
+    """Check if a process is alive
+
+    Jobs are children of the demon: an ended child stays a zombie, which
+    still looks alive, until it is reaped here."""
+    try:
+        ended, _ = os.waitpid(pid,os.WNOHANG)
+        return ended == 0
+    except ChildProcessError: # not a child, or already reaped
+        pass
+    try:
+        os.kill(pid,0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
 def endjob(charge, status, messf): # New function
     """find the ended jobs"""
-    psaux = check_output("ps -aux | awk '{print $2}'", shell=True,text=True)
-    running_processes = psaux.split('\n')[1:-1]
-    for jobid in charge:
+    for jobid in list(charge):
         job = charge[jobid]
-        if job['status'] == 'run':
-            pid = job['pid']
-            if not(pid in running_processes):
-                job['status'] = 'end'
-                writemessage(f"Job {job['script']} ended",messf)
-                update_status(charge,job,-1)
-                ended  =  delete(jobid,charge)
+        if job['status'] == 'run' and not isrunning(int(job['pid'])):
+            writemessage(f"Job {job['script']} ended",messf)
+            update_status(status,job,-1)
+            delete(jobid,charge)
     return charge, status
 
 def delete(jobid, jobs): # New function
@@ -184,12 +212,11 @@ def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",mess
     status["RAM"] = 0
     status["Ncpu"] = 0
     status["HDmemory"] = 0
-    # clean minosse directory
-    ls=os.listdir(Mdir)
-    for i in range(len(ls)):
-        if ls[i].startswith(remove) or ls[i].startswith(subjob):
-            infile=ls[i].split('.')[0]
-            os.remove(Mdir+infile+'.mns')
+    # clean the pending requests
+    Rdir=requestdir(Mdir)
+    for f in os.listdir(Rdir):
+        if f.startswith(remove) or f.startswith(subjob):
+            os.remove(Rdir+f)
     # kill running jobs
     charge = readallfile(chargef)
     for jobid in charge:
@@ -208,81 +235,84 @@ def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",mess
     writemessage('status machine cleaned',mess=f"{Mdir}/{messf}")
     return status
 
-def checkdemon(file6,file3,mess): # Updated function
+def checkdemon(file6,file2,file3,mess): # Updated function
     """Check if the demon must run or stop"""
     stop = readallfile(file6)
     if stop['status'] == 'stop':
-        status = readallfile(file3)
-        cleanstatus(status)
+        Mdir = os.path.dirname(file6)+'/'
+        status = cleanstatus(readallfile(file3),Mdir,file2,file6)
+        writeallfile(file3,status)
         stop['status'] = 'down'
         writeallfile(file6,stop)
         writemessage('---MINOSSE STOPS---',mess)
         sys.exit(0)
     return
 
-def checkdeletedjob(file7,file2,file8,file3,mess): # Updated function
-    """check the requests of deleting jobs"""
-    writejob(Mdir,file8,file7)
+def checkdeletedjob(file7,file2,file3,mess): # Updated function
+    """check the requests of deleting jobs, collected by writejob"""
     inp = readallfile(file7)
+    if not inp:
+        return
+    alljobs = readallfile(file2)
     status = readallfile(file3)
-    if inp:
-        alljobs = readallfile(file2)
-        for delid in inp:
-            delinst = inp[delid]
-            script = delinst['script']
-            id = delinst['id']
-            opt = delinst['all']
-            duser = delinst['user']
-            if id:
-                tbdel = alljobs[id]
-                juser = tbdel['user']
-                if juser == duser:
-                    if tbdel['status'] == 'run':
-                        pid = tbdel['pid']
-                        try:
-                            os.kill(pid,SIGTERM)
-                            deleted = delete(id,alljobs)
-                            update_status(status,tbdel,-1)
-                        except:
-                            writewarning(f"Unable to kill job {id}",mess)
-                    else:
-                        deleted = delete(id,alljobs)
-                else:
-                    writewarning(f"trying to delete a job of another user",mess)
-            if script:
-                for job in alljobs:
-                    if job['script'] == script and job['user'] == duser:
-                        if job['status'] == 'run':
-                            pid = job['pid']
-                            try:
-                                os.kill(pid,SIGTERM)
-                                deleted = delete(job['id'],alljobs)
-                                update_status(status,job,-1)
-                            except:
-                                writewarning(f"Unable to kill job {script}",mess)
-                        else:
-                            deleted = delete(job['id'],alljobs)
-            if deleted:
-                writemessage(f"job {script} deleted",mess)
+    for delid in inp:
+        delinst = inp[delid]
+        duser = delinst['user']
+        if delinst['id']:
+            targets = [str(delinst['id'])]
+        else:
+            targets = [jobid for jobid in alljobs
+                       if alljobs[jobid]['script'] == delinst['script']]
+        for jobid in targets:
+            job = alljobs.get(jobid)
+            if job is None:
+                writewarning(f"{duser} tried to delete job {jobid}, which does not exist",mess)
+            elif job['user'] != duser:
+                writewarning(f"{duser} tried to delete job {jobid} of {job['user']}",mess)
+            else:
+                if job['status'] == 'run':
+                    try:
+                        os.kill(int(job['pid']),SIGTERM)
+                    except ProcessLookupError: # it has just ended
+                        pass
+                    update_status(status,job,-1)
+                delete(jobid,alljobs)
+                writemessage(f"job {jobid} {job['script']} deleted",mess)
     writeallfile(file2,alljobs)
-    inp = {}
-    writeallfile(file7,inp)
+    writeallfile(file3,status)
+    writeallfile(file7,{})
     return
 
-def writejob(Mdir,fileA,fileB):
-    """check the new submitted jobs"""
-    ls = os.listdir(Mdir)
+def readrequest(filename):
+    """Read a request file written by a user, returning (owner, content)
+
+    Request directories are world-writable, so links and special files are
+    refused, and the owner of the file, not its content, names the user."""
+    fd = os.open(filename,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(fd) as filein:
+        info = os.fstat(filein.fileno())
+        if not S_ISREG(info.st_mode):
+            raise ValueError('not a regular file')
+        content = json.load(filein)
+    return pwd.getpwuid(info.st_uid).pw_name, content
+
+def writejob(Mdir,fileA,fileB,mess):
+    """check the new requests (submitted or deleted jobs)"""
     tracked_jobs = readallfile(fileB)
-    for i, f in enumerate(ls):
-        if f.startswith(fileA):
-            subjname = f.split('.')[0]
-            jobid = subjname[6:]
+    for f in os.listdir(Mdir):
+        if f.startswith(fileA) and f.endswith('.mns'):
+            jobid = f[len(fileA):-len('.mns')]
             if jobid in tracked_jobs:
-                pass
+                continue
+            try:
+                user, request = readrequest(Mdir + f)
+                job = request[jobid]
+                job['user'] = user
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                writewarning(f"request {f} rejected: {error}",mess)
             else:
-                job = readallfile(Mdir + subjname)
-                tracked_jobs[jobid] = job[jobid]
-                os.remove(Mdir + f)
+                tracked_jobs[jobid] = job
+            os.remove(Mdir + f)
     writeallfile(fileB, tracked_jobs)
              
 def getpid(pid,opt):
