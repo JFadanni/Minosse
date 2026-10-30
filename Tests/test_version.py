@@ -35,6 +35,11 @@ def test_changelog_documents_the_version():
     assert f"[{VERSION}]: https://github.com/" in changelog
 
 
+def test_readme_shows_the_version():
+    title = (SRC / "README.md").read_text().strip().splitlines()[0]
+    assert VERSION in title
+
+
 @pytest.mark.parametrize("tool", ["Msub", "Mstat", "Mdel"])
 def test_commands_show_the_version(sandbox, tool):
     result = sandbox.run(tool, "--version")
