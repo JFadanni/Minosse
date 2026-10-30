@@ -6,19 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and Minosse follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 the version is kept in the `VERSION` file and each release is tagged `vX.Y.Z`.
 
-## [Unreleased]
-
-### Added
-
-- Continuous integration on GitHub Actions: pylint, the unit tests on
-  Python 3.8 to 3.14 and the whole suite in the simulated server.
-- `Tests/run_tests.sh` also runs with docker (`CONTAINER_ENGINE=docker`).
-- A `.gitignore` for the Python and pytest caches.
-
-### Removed
-
-- The pylint-only workflow, which failed on every push.
-
 ## [2.0.0] - 2026-10-30
 
 A rewrite of the demon and of the user commands, with a test suite.
@@ -93,7 +80,6 @@ A rewrite of the demon and of the user commands, with a test suite.
 
 ## [1.0.0] - 2023-09-25
 
-[Unreleased]: https://github.com/JFadanni/Minosse/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/JFadanni/Minosse/compare/v1.3.1...v2.0.0
 [1.3.1]: https://github.com/JFadanni/Minosse/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/JFadanni/Minosse/compare/v1.2.0...v1.3.0
