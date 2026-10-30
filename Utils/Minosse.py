@@ -1,5 +1,14 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import os
+import time
+from   subprocess import *
+from   argparse   import ArgumentParser
+
+from    Mutil      import *
+from    Mutil      import __version__
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -21,145 +30,106 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "24th Nov 2023"
-__version__ = '1.3.1 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
-
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
-#import sys
-#import os
-import time
-from subprocess import Popen
-
-import Mutil as util
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-MDIR="$instdir/"
-FILE1=MDIR+'nodes'
-FILE2=MDIR+'charge'
-FLIE3=MDIR+'status'
-FILE4=MDIR+'defaults'
-FILE5='subjob'
-FILE6=MDIR+'conf'
-FILE7=MDIR+'delete'
-FILE8='remove'
-MESS=MDIR+'messages'
+Mdir="$instdir/"
+file1=Mdir+'nodes'
+file2=Mdir+'charge'
+file3=Mdir+'status'
+file4=Mdir+'defaults'
+file5='subjob'
+file6=Mdir+'conf'
+file7=Mdir+'delete'
+file8='remove'
+mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
-
 ##------------------------------------------------------------------------------
-## variable names
+## Flags
 ##------------------------------------------------------------------------------
 
-N=0
-subprocesses=[[],[]]
+parser = ArgumentParser(description="The Minosse demon (started by minosse start)")
+
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("--delete-pending",
+                    action="store_true", dest="delete", default=False,
+                    help="delete the jobs still waiting from the last run")
+
+options = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
 
-util.ifrunning()
-util.writeinitializationmessage()
-status=util.readallfile(FLIE3)
-status=util.cleanstatus(status)
-util.writeallfile(FLIE3,status)
+ifrunning(Mdir)
+writeinitializationmessage(mess)
+status=readallfile(file3)
+status=cleanstatus(status,Mdir,file2,file6,keep=not options.delete)
+writeallfile(file3,status)
+realvalue=readallfile(file1)
+defaults=readallfile(file4)
 
 while 1:
     ## read files
-    realvalue=util.readallfile(FILE1)
-    charge=util.readallfile(FILE2)
-    status=util.readallfile(FLIE3)
-    defaults=util.readallfile(FILE4)
-    ## apply default settings if not specified in the request
-    charge=util.applydefaults(charge,defaults,'RAM')
-    charge=util.applydefaults(charge,defaults,'Ncpu')
-    charge=util.applydefaults(charge,defaults,'HDmemory')
-    charge=util.chainjob(charge)
+    status=readallfile(file3)
+    charge=readallfile(file2)
     ## test free slots for the requests
-    test0=util.testtext(defaults,charge,'status')
-    test1=util.testalgebric(realvalue,status,charge,'RAM')
-    test2=util.testalgebric(realvalue,status,charge,'Ncpu')
-    test3=util.testalgebric(realvalue,status,charge,'HDmemory')
-    tests=[test0,test1,test2,test3]
-    ## calculate the free machine for each requests
-    freemac=util.choice(tests,realvalue)
-    if len(freemac[1]) == 0:
-        pass
+    available_resources = find_available_resources(status,realvalue)
+    queue = holdchained(find_queued_jobs(charge),charge)
+    if available_resources['free_space'] and queue:
+        priority_list = sortbypriority(queue)
+        jobs_to_submit = check_for_submissions(available_resources,priority_list,queue)
+
+        for jobid in jobs_to_submit:
+            job = charge[jobid]
+            script = job['script']
+            try:
+                # no shell: the script name must not be able to run commands as root;
+                # a session of its own, so that the whole job can be killed;
+                # the directory of the script, since users cannot write in Mdir
+                subpro=Popen(jobcommand(job),start_new_session=True,
+                             cwd=os.path.dirname(script))
+                job['pid'] = subpro.pid
+                job['status'] = 'run'
+                job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
+                writemessage(f"Job {script} submitted",mess)
+                update_status(status,job,1)
+            except OSError:
+                writewarning(f"Unable to run, something wrong in the {script} script",mess)
+                deleted = delete(jobid,charge)
+                if deleted:
+                    writewarning('Job aborted',mess)
+                else:
+                    writewarning('Unable to run or delete job',mess)
+        writeallfile(file2,charge)
+        writeallfile(file3,status)
     else:
-        N=N+1
-        ## define the priority list
-        job=util.prior(freemac,charge)
-        ## modify the status
-        util.writemessage('Refresh machine status')
-        status=util.newstatus(status,charge,'RAM',job)
-        status=util.newstatus(status,charge,'Ncpu',job)
-        status=util.newstatus(status,charge,'HDmemory',job)
-        ## set runnig job
-        charge=util.replace(charge,'run','status',job)
-        charge=util.replace(charge,time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
-        ,'runtime',job)
-        util.writemessage('Refresh queue status')
-        ## submit calculation
-        script=util.findall(charge,'script')[job]
-        user=util.findall(charge,'user')[job]
-        util.writemessage('Running job '+script)
-        ##pid=os.spawnlp(os.P_NOWAIT, script)    prova
-        try:
-            #subpro=Popen(["runuser -u "+user+" "+script],shell=True)
-            subpro = Popen(["runuser", "-u", user, script])
-            PID=subpro.pid
-#            errors=subpro.errors
-#            if(errors):
-#                    writewarning('submission error '+str(errors))
-            subprocesses=util.makelist(subprocesses,subpro,N)
-            util.writemessage('job pid '+str(PID))
-            charge=util.replace(charge,PID,'pid',job)
-            charge=util.replace(charge,N,'Njob',job)
-            util.writeallfile(FLIE3,status)
-            util.writeallfile(FILE2,charge)
-        except:
-            util.writewarning(' Something wrong in the '+script+' script')
-            util.writewarning(' Job aborted')
-            charge=util.delete(charge,job,varnames)
-            util.writeallfile(FILE2,charge)
-    ## refresh the variables
-    charge=util.readallfile(FILE2)
-    status=util.readallfile(FLIE3)
+        pass
+    ## refresh the variables 
+    charge=readallfile(file2)
+    status=readallfile(file3)
     ## check ended jobs
-    result=util.endjob(charge,subprocesses)
-    job=result[0]
-    subprocesses=result[1]
-    if job == 'no':
-        pass
-    else:
-        util.writemessage('job '+str(util.findall(charge,'script')[job]+' ended'))
-        ## refresh the status when a job ends
-        util.writemessage('Refresh machine status')
-        status=util.newstatus2(status,charge,'RAM',job)
-        status=util.newstatus2(status,charge,'Ncpu',job)
-        status=util.newstatus2(status,charge,'HDmemory',job)
-        util.writeallfile(FLIE3,status)
-        ## delete from queue list the job ended
-        util.writemessage('Refresh queue status')
-        charge=util.delete(charge,job,varnames)
-        util.writeallfile(FILE2,charge)
+    charge, status = endjob(charge,status,mess)
+    writeallfile(file3,status)
+    writeallfile(file2,charge)
+    ## check for jobs to be deleted
+    writejob(requestdir(Mdir),file8,file7,mess)
+    checkdeletedjob(file7,file2,file3,mess)
     ## check the stop file wich control the minosse  demon
-    util.checkdemon(FILE6)
-    ## check if a job has been deleted from the que system
-    util.checkdeletedjob(FILE7,FILE2,varnames)
+    checkdemon(file6,file2,file3,mess)
     ## write in the charge file the new submitted job
-    util.writejob(MDIR,FILE5,FILE2)
+    submitjobs(requestdir(Mdir),file5,file2,file3,realvalue,mess)
     ## waiting time
     time.sleep(1)

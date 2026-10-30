@@ -1,8 +1,13 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+import pwd
+import socket
+import time
+from   argparse   import ArgumentParser
+from    Mutil      import *
+from    Mutil      import __version__
 
-"""
-Minosse a Python-based batch system
+""" Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
 
@@ -22,75 +27,93 @@ You should have received a copy of the GNU General Public License
 along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = "1.3.1"
 __author__ = "Jacopo Fadanni"
-__date__ = "24th Nov 2023"
 __credits__ = """Piero Altoè for a nice queue manager."""
-
-from   argparse import ArgumentParser
-import getpass
-import os
-import random
-import socket
-import time
-
-from    Mutil      import ifrunning, writeallfile
-
-
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-MDIR="$instdir/"
-FILE5='subjob'
-MESS=MDIR+'messages'
+Mdir="$instdir/"
+file1=Mdir+'nodes'
+file5='subjob'
+file4=Mdir+'defaults'
+mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
+varnames=['hostname','Ncpu','RAM','architecture','status'
+          ,'priority','pid','Njob','script','user','chain'
+          ,'subtime','runtime','HDmemory']
+
+##------------------------------------------------------------------------------
+## Loads defaults
+##------------------------------------------------------------------------------
+defaults = readallfile(file4)
+cpus = defaults['Ncpu']
+RAM = defaults['RAM']
+priority = defaults['priority']
+HD = defaults['HDmemory']
 
 ##------------------------------------------------------------------------------
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
+parser = ArgumentParser(description="Submit a job to the Minosse queue")
 
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
 parser.add_argument("-c", "--cpus",
-                  action="store", dest="cpus", default=1, type=int,
-                  help="nomber of cpus required [default=1]")
+                    action="store", dest="cpus", default=cpus, type=int,
+                    help=f"number of cpus required [default={cpus}]")
 parser.add_argument("-m", "--memory",
-                  action="store", dest="memory", default=700, type=int,
-                  help="RAM memory requirement [default=700 MB]")
-parser.add_argument("-d", "--harddisck",
-                  action="store", dest="HD", default=00, type=int,
-                  help="HD scratch space required [default=00 GB]")
+                    action="store", dest="memory", default=RAM, type=int,
+                    help=f"RAM memory requirement [default={RAM} MB]")
+#parser.add_argument("-d", "--harddisck",
+#                    action="store", dest="HD", default=0, type=int,
+#                    help="HD scratch space required [default=0 GB]")
 parser.add_argument("-p", "--priority",
-                  action="store", dest="priority", default=50, type=int,
-                  help="set the priority of a job [default=50]")
+                    action="store", dest="priority", default=priority, type=int,
+                    help=f"set the priority of a job [default={priority}]")
 parser.add_argument("-f", "--file",
-                  action="store", dest="file",
-                  help="set the name of the job script")
+                    action="store", dest="file",
+                    help="set the name of the job script")
 parser.add_argument("-l", "--link",
-                  action="store", dest="chain", default="none",
-                  help="set the name of the chained job [default=none]")
+                    action="store", dest="chain", default="none",
+                    help="run the job after the earlier job with this script "
+                         "ends [default=none]")
 
-args = parser.parse_args()
+options = parser.parse_args()
+
+if not options.file:
+    parser.error("the job script is required: -f path/scriptname")
 
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning(Mdir)
 architecture= os.uname()[-1]
-ID=str(random.randint(1, 1000000))
+# the demon does not run in the submission directory
+script = os.path.abspath(options.file)
+chain = options.chain if options.chain == 'none' else os.path.abspath(options.chain)
+# not getpass.getuser(): it trusts $LOGNAME and $USER
+user = pwd.getpwuid(os.getuid()).pw_name
 
-subjob=[varnames,
-        [socket.gethostname(),args.cpus,args.memory,args.HD,architecture,'que',
-         args.priority,'','',args.file ,getpass.getuser(),ID,args.chain,
-         time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'']]
+varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
+         options.priority,'','',script,user,chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
+         HD]
 
-writeallfile(MDIR+FILE5+ID,subjob)
+job_prop = {}
+for vname, vval in zip(varnames, varvalues):
+    job_prop[vname] = vval
+
+# the demon checks it again, but it is better to know it now
+error = invalidjob(job_prop,readallfile(file1))
+if error:
+    parser.error(f"the job can never run: {error}")
+
+# the demon gives the job its id
+writeallfile(requestdir(Mdir)+requestname(file5),job_prop)
+print(f"Job {script} submitted, see its id with mstat")

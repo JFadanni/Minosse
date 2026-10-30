@@ -1,5 +1,13 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+import os
+import pwd
+from   argparse   import ArgumentParser
+
+from    Mutil      import *
+from    Mutil      import __version__
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -21,64 +29,57 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "24th Nov 2023"
-__version__ = '1.3.1'
 __credits__ = """Piero Altoè for a nice queue manager."""
-
-from argparse import ArgumentParser
-import getpass
-import random
-
-from Mutil import ifrunning, writeallfile
 
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-MDIR="$instdir/"
-FILE8='remove'
-MESS=MDIR+'messages'
-
-##------------------------------------------------------------------------------
-## Variable names
-##------------------------------------------------------------------------------
-
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
+Mdir="$instdir/"
+file8='remove'
+mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
+parser = ArgumentParser(description="Delete a job from the Minosse queue")
 
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
 parser.add_argument("-j", "--job",
-                  action="store", dest="job",  default="none",
-                  help="id number")
-
+                    action="store", dest="job", type=int, default=None,
+                    help="id number")
 parser.add_argument("-s", "--script",
-                  action="store", dest="script", default="none",
-                  help="script name")
-
+                    action="store", dest="script", default=None,
+                    help="script name")
 parser.add_argument("-a", "--all",
-                  action="store_true", dest="all", default=False,
-                  help="kill all processes from the top script to the last child")
+                    action="store_true", dest="all", default=False,
+                    help="kill all processes from the top script to the last "
+                         "child (always done, kept for compatibility)")
 
-args = parser.parse_args()
+options = parser.parse_args()
+
+if options.job is None and options.script is None:
+    parser.error("give the job to delete: -j id or -s path/scriptname")
 
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+ifrunning(Mdir)
 
-RND=str(random.randint(1, 1000000))
+# job ids are the keys of charge.mns, which are strings
+job = None if options.job is None else str(options.job)
+# msub stores absolute paths
+script = None if options.script is None else os.path.abspath(options.script)
 
-OPT ="all" if args.all else "none"
+delkeys = ['script','id','all','user']
+delvalues = [script,job,options.all,pwd.getpwuid(os.getuid()).pw_name]
+deljob = {}
 
-deljob=[['script','id','priority','user'],
-        [args.script,args.job,OPT,getpass.getuser()]]
+for vname, vval in zip(delkeys, delvalues):
+    deljob[vname] = vval
 
 
-writeallfile(MDIR+FILE8+RND,deljob)
+writeallfile(requestdir(Mdir)+requestname(file8),deljob)

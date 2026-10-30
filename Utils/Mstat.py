@@ -1,6 +1,10 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from   argparse   import ArgumentParser
+from    Mutil      import *
+from    Mutil      import __version__
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -22,36 +26,20 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "24th Nov 2023"
-__version__ = '1.3.1'
 __credits__ = """Piero Altoè for a nice queue manager."""
-
-##------------------------------------------------------------------------------
-## Common Imports
-##------------------------------------------------------------------------------
-
-from argparse import ArgumentParser
-
-##------------------------------------------------------------------------------
-## Local Imports
-##------------------------------------------------------------------------------
-
-from    Mutil      import ifrunning, readallfile, findall
-
-
 ##------------------------------------------------------------------------------
 ## Files names
 ##------------------------------------------------------------------------------
 
-MDIR="$instdir/"
-FILE2=MDIR+'charge'
-MESS=MDIR+'messages'
+Mdir="$instdir/"
+file2=Mdir+'charge'
+mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
 ## Variable names
 ##------------------------------------------------------------------------------
 
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
+varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
@@ -59,49 +47,64 @@ varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(prog="%prog", description=f"%prog {__version__}")
+parser = ArgumentParser(description="Show the jobs in the Minosse queue")
 
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
 parser.add_argument("-v", "--verbose",
-                  action="store_true", dest="verbose", default=False,
-                  help="make lots of noise")
+                    action="store_true", dest="verbose", default=False,
+                    help="make lots of noise")
 
-args = parser.parse_args()
+options = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
 ##------------------------------------------------------------------------------
 
-ifrunning()
+#ifrunning()
 
-print (f'Minosse batch system v{__version__}')
+print (f'Minosse batch system {__version__}')
 print ('-'*60)
 
-charge=readallfile(FILE2)
-user=findall(charge,'user')
+charge=readallfile(file2)
 
-if args.verbose:
-    status=findall(charge,'status')
-    if not status:
-        print ('  System free: no job queued or running')
+if options.verbose:
+    if charge:
+        print ("Queued or running jobs:\n","-"*60)
+        for jobid in charge:
+            job = charge[jobid]
+            print(f"{jobid}:")
+            print(f"  user: {job['user']}")
+            print(f"  script: {job['script']}")
+            print(f"  priority: {job['priority']}")
+            print(f"  status: {job['status']}")
+            print(f"  Ncpu: {job['Ncpu']}")
+            print(f"  RAM: {job['RAM']}")
+            print(f"  HDmemory: {job['HDmemory']}")
+            print(f"  subtime: {job['subtime']}")
+            if job['status'] == 'run':
+                print(f"  runtime: {job['runtime']}")
+                print(f"  pid: {job['pid']}")
+            else:
+                print("  runtime: -")
+                print("  pid: -")
     else:
-
-        for i in range(len(user)):
-            for j in range(int(len(charge[0])/len(user))):
-                print(f"{charge[0][j+int(len(charge[0])/len(user))*i]:15s}:"
-                f"{charge[1][j+int(len(charge[0])/len(user))*i]}")
+        print ('  System free: no job queued or running')
 
 else:
-    status=findall(charge,'status')
-    Ncpu=findall(charge,'Ncpu')
-    RAM=findall(charge,'RAM')
-    priority=findall(charge,'priority')
-    jid=findall(charge,'id')
-
-    if not status:
-        print ('  System free: no job queued or running')
-    else:
-        print(f"{'user':15s} {'Ncpu':6s} {'RAM':8s} {'id':7s} {'status':7s} {'priority':9s}")
+    if charge:
+        print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
         print ('-'*60)
-        for i, j in enumerate(jid):
-            print (f"{user[i]:15s}{Ncpu[i]:6s}{RAM[i]:8s}{j:7s}{status[i]:7s}{priority[i]:9s}")
+        for jobid in charge:
+            job = charge[jobid]
+            user = job['user']
+            script = job['script']
+            status = job['status']
+            Ncpu = job['Ncpu']
+            RAM = job['RAM']
+            priority = job['priority']
+
+            print ('%15s' % user,'%6s' %Ncpu,'%8s' % RAM,'%7s' % jobid,'%7s' %status, '%9s' %priority)
+    else:
+        print ('  System free: no job queued or running')
 print ('-'*60)

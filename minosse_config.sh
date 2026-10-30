@@ -16,9 +16,9 @@
  
  You should have received a copy of the GNU General Public License
  along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
- 
- Minosse version 1.3.1
- ---------------------------------------------------------'
+ '
+ echo " Minosse version $(cat VERSION)"
+ echo ' ---------------------------------------------------------'
 
  function fatal { 
 	echo ' '
@@ -44,9 +44,9 @@ if [[ -z $workdir ]]; then
 fi
 
 check $workdir
-partition=$(df | fgrep -w $workdir | awk '{printf "%i", $2/1048576}')
-partname=$(df | fgrep -w $workdir | awk '{print $6}')
-devname=$(df | fgrep -w $workdir | awk '{print $1}')
+partition=$(df -P $workdir | awk 'NR==2 {printf "%i", $2/1048576}')
+partname=$(df -P $workdir | awk 'NR==2 {print $6}')
+devname=$(df -P $workdir | awk 'NR==2 {print $1}')
 check $partition
 check $partname
 check $devname
@@ -116,62 +116,64 @@ cd Tmp
 echo -e '\nwrite Minosse files:'
 echo 'charge.mns'
 cat <<END> charge.mns
-!start
-!end
+{
+
+}
 END
 
 echo 'conf.mns'
 cat <<END> conf.mns
-!start
-status: up
-!end
+{
+  "status": "down"
+}
 END
 
 echo 'delete.mns'
 cat <<END> delete.mns
-!start
-!end
+{
+
+}
 END
 
 echo 'node.mns'
 cat <<END> nodes.mns
-!start
-NODE: none
-hostname: $HOSTNAME
-Ncpu: $cpus 
-RAM: $totmem
-HDmemory: $partition
-architecture: $HOSTTYPE
-status: up
-priority: $prior
-!end
+{
+  "NODE": "none",
+  "hostname": "$HOSTNAME",
+  "Ncpu": $cpus ,
+  "RAM": $totmem,
+  "HDmemory": $partition,
+  "architecture": "$HOSTTYPE",
+  "status": "up",
+  "priority": $prior
+}
 END
 
 echo 'defaults.mns'
 cat <<END> defaults.mns
-!start
-hostname: $HOSTNAME
-Ncpu: $Dcpus
-RAM: $Dmemory
-HDmemory: $DHD
-architecture: $HOSTTYPE
-status: que
-priority: $Dprior
-!end
+{
+  "hostname": "$HOSTNAME",
+  "Ncpu": 1,
+  "RAM": $totmem,
+  "HDmemory": 0,
+  "architecture": "$HOSTTYPE",
+  "status": "que",
+  "priority": $prior
+}
 END
 
 echo 'status.mns'
 cat <<END> status.mns
-!start
-NODE: none
-hostname: $HOSTNAME
-Ncpu: 0
-RAM: 0
-HDmemory: 0
-architecture: $HOSTTYPE
-status: up
-priority: $prior
-!end
+{
+  "NODE": "none",
+  "hostname": "$HOSTNAME",
+  "Ncpu": 0,
+  "RAM": 0,
+  "HDmemory": 0,
+  "architecture": "$HOSTTYPE",
+  "status": "up",
+  "priority": $prior
+}
 END
 
 cd ..

@@ -1,6 +1,15 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
+import sys
+import time
+import json
+import math
+import pwd
+from   stat   import S_ISREG
+from   signal import SIGTERM
+
 """ Minosse a Python-based batch system
 
 Copyright 2022,2024 Jacopo Fadanni
@@ -22,438 +31,449 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "24th Nov 2023"
-__version__ = '1.3.1'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
-##------------------------------------------------------------------------------
-## Imports
-##------------------------------------------------------------------------------
+def readversion():
+    """The version of Minosse, from the VERSION file installed next to the
+    scripts (or at the top of the source tree)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (os.path.join(here,'VERSION'), os.path.join(here,os.pardir,'VERSION')):
+        try:
+            with open(path,encoding='utf-8') as filein:
+                return filein.read().strip()
+        except OSError:
+            pass
+    return 'unknown'
 
-import os
-from   signal import SIGTERM
-import sys
-import time
-
-##------------------------------------------------------------------------------
-## Files names
-##------------------------------------------------------------------------------
-
-MDIR="$instdir/"
-FILE1=MDIR+'nodes'
-FILE2=MDIR+'charge'
-FILE3=MDIR+'status'
-FILE4=MDIR+'defaults'
-FILE5='subjob'
-FILE6=MDIR+'conf'
-FILE7=MDIR+'delete'
-FILE8='remove'
-MESS=MDIR+'messages'
-
-##------------------------------------------------------------------------------
-## Variable names
-##------------------------------------------------------------------------------
-
-varnames=['hostname','Ncpu','RAM','HDmemory','architecture','status'
-          ,'priority','pid','Njob','script','user','id','chain'
-          ,'subtime','runtime']
-
+__version__ = readversion()
 
 ##------------------------------------------------------------------------------
 ## write messages
 ##------------------------------------------------------------------------------
 
-def writeinitializationmessage():
+def writeinitializationmessage(mess):
     """write the opening string in the messages file""" 
-    with open(MESS,'w',encoding='utf-8') as log:
+    with open(mess,'w',encoding='utf-8') as log:
         log.write(time.asctime()+'   ---MINOSSE START---\n')
+    return
 
-def writemessage(wrote):
+def writemessage(wrote,mess):
     """write a string in the messages file"""
-    with open(MESS,'a',encoding='utf-8') as log:
+    with open(mess,'a',encoding='utf-8') as log:
         log.write(time.asctime()+'   '+wrote+'\n')
+    return
 
-def writewarning(wrote):
+def writewarning(wrote,mess):
     """write a WARNING message"""
-    writemessage('WARNING:'+wrote)
+    writemessage('WARNING:'+wrote,mess)
+    return
 
-def writefatalerror(wrote):
+def writefatalerror(wrote,mess):
     """write an error message end exit from Minosse"""
-    writemessage('FATAL:  '+wrote)
-    writemessage('--- MINOSSE STOPS ABNORMALLY ---')
-    sys.exit(0)
+    writemessage('FATAL:  '+wrote,mess)
+    writemessage('--- MINOSSE STOPS ABNORMALLY ---',mess)
+    sys.exit(1)
 
 ##------------------------------------------------------------------------------
 ## read files
 ##------------------------------------------------------------------------------
 
+def requestdir(Mdir):
+    """The world-writable directory where users drop their requests
+
+    It is kept apart from Mdir: Python imports modules from the directory of
+    the scripts, so Mdir must not be writable by users."""
+    return Mdir+'requests/'
+
 def readallfile(filename):
-    """Read an entire mns file and store it in lists"""
-    varname=[]
-    varvalue=[]
-    filecomplete='false'
-    ## impose the completeness of the file
-    while filecomplete=='false':
-        try:
-            with open(filename+'.mns','r',encoding='utf-8') as filein:
-                output=filein.read()
-        except:
-            writefatalerror(filename+' file not found in your minosse directory!')
-        output=output.split('\n')
-        for outputi in output:
-            if outputi.strip() == '!end':
-                filecomplete='true'
-    ## divide in two lists the first one with the variable name
-    ## the second one with the variable value
-    for outputi in output:
-        case=outputi.strip()
-        if case in("","!start","!end"):
-            pass
-        else:
-            element=outputi.split(':')
-            varname.append(element[0].strip())
-            if element[1].strip() == '':
-                element[1]='none'
-            varvalue.append(element[1].strip())
-    allvar=[varname,varvalue]
+    """Read an entire mns file and store it in a dictionary"""
+    with open(filename+'.mns','r',encoding='utf-8') as filein:
+        allvar = json.load(filein)
     return allvar
+
 
 ##------------------------------------------------------------------------------
 ## write files
 ##------------------------------------------------------------------------------
 
 def writeallfile(filename,allvar):
-    """Write an entire mns file """
-    with open(filename+'.mns','w',encoding='utf-8') as fileout:
-        fileout.write('!start'+'\n')
-        for i in range(len(allvar[0])):
-            fileout.write(str(allvar[0][i])+': '+str(allvar[1][i])+'\n')
-        fileout.write('!end\n')
+    """Write an entire mns file
 
-##------------------------------------------------------------------------------
-## find or find and replace
-##------------------------------------------------------------------------------
+    The file is written under a hidden temporary name and then renamed, so
+    that readers never see it half written."""
+    dirname, basename = os.path.split(filename)
+    tmp = os.path.join(dirname, '.'+basename+'.tmp')
+    with open(tmp,'w',encoding='utf-8') as fileout:
+        json.dump(allvar,fileout,indent=2)
+    os.chmod(tmp,0o644)
+    os.replace(tmp,filename+'.mns')
+    return
 
-def findall(allvar,findvarname):
-    """find in a varialbe in a list"""
-    varvalue=[]
-    for i in range(len(allvar[0])):
-        if allvar[0][i] == findvarname or allvar[0][i] == 'none':
-            varvalue.append(allvar[1][i])
-    return varvalue
-
-def replace(allvar,value,varname,index):
-    """change the value of a variable in a specified position"""
-    cou=[]
-    for i in range(len(allvar[0])):
-        if allvar[0][i] == varname :
-            cou.append(i)
-    allvar[1][cou[index]]=value
-    return allvar
 
 ##------------------------------------------------------------------------------
 ## Miscellaneous
 ##------------------------------------------------------------------------------
+    
+def isundefined(value):
+    """True for a missing value: None or NaN"""
+    return value is None or (isinstance(value,float) and math.isnan(value))
 
-def applydefaults(allvar1,allvar2,varname):
-    """Apply the default settings content in the default.mns file"""
-    def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname and allvar1[1][i] == 'none' :
-            allvar1[1][i]=def1[0]
-    return allvar1
-
-def difference(allvar1,allvar2,varname):
-    """Make the difference between two lists of variables"""
-    diffvar=[]
-    var1=findall(allvar1,varname)
-    var2=findall(allvar2,varname)
-    for i,var1i in enumerate(var1):
-        diffvar.append(int(var1i)-int(var2[i]))
-    return diffvar
-
-def testalgebric(allvar1,allvar2,allvar3,varname):
-    """Make a test for numeric varible if allvar1-allvar3 <= allvar3"""
-    free=[]
-    index1=[]
-    index2=[]
-    ref=difference(allvar1,allvar2,varname)
-    req=findall(allvar3,varname)
-    for i,reqi in enumerate(req):
-        for j,refj in enumerate(ref):
-            if refj-int(reqi) >= 0:
-                free.append(refj-int(reqi))
-                index1.append(i)
-                index2.append(j)
-    freepos=[free,index1,index2]
-    return freepos
-
-def testtext(allvar1,allvar2,varname):
-    """Make a test for test variable if allvar1[varname] == allvar2[varname]"""
-    free=[]
-    index1=[]
-    index2=[]
-    ref=findall(allvar1,varname)
-    req=findall(allvar2,varname)
-    for i,reqi in enumerate(req):
-        for j, refj in enumerate(ref):
-            if refj == reqi or refj == 'none' or reqi == 'none':
-                free.append(refj)
-                index1.append(i)
-                index2.append(j)
-    freepos=[free,index1,index2]
-    return freepos
-
-def choice(tests,allvar1):
-    """Merge all the tests results finding the free machine"""
-    a,b,c=[],[],[]
-    trial=tests[0]
-    for i in range(1,len(tests)):
-        for j in range(len(trial[0])):
-            for k in range(len(tests[i][0])):
-                if trial[1][j] == tests[i][1][k] and trial[2][j] == tests[i][2][k]:
-                    a.append(trial[0][j])
-                    b.append(trial[1][j])
-                    c.append(trial[2][j])
-        trial=[a,b,c]
-        a,b,c=[],[],[]
-    ref=findall(allvar1,'hostname')
-    for i in range(len(trial[0])):
-        trial[0][i]=ref[trial[2][i]]
-    return trial
-
-def prior(trial,allvar):
-    """Test priority of the machines and calculations"""
-    prio=[]
-    ref=findall(allvar,'priority')
-    for i in range(len(trial[1])):
-        prio.append(int(ref[trial[1][i]]))
-    mprio=prio.index(max(prio))
-    fprio=trial[1][mprio]
-    return fprio
-
-def newstatus(allvar1,allvar2,varname,job):
-    """Modify the status after the job choice"""
-    def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname :
-            allvar1[1][i]=int(allvar1[1][i])+int(def1[job])
-    return allvar1
-
-def newstatus2(allvar1,allvar2,varname,job):
-    """Modify the status after the job end"""
-    def1=findall(allvar2,varname)
-    for i in range(len(allvar1[0])):
-        if allvar1[0][i] == varname :
-            allvar1[1][i]=int(allvar1[1][i])-int(def1[job])
-    return allvar1
-
-def endjob(charge,subprocesses):
-    """find the ended jobs"""  
-    p=[]
-    ended='no'
-    for i in range(len(subprocesses[0])):
-        p.append(subprocesses[0][i].poll())
-    for i,pi in enumerate(p):
-        if pi is not None:
-            ended=i
-    if ended == 'no':
-        job='no'
-        result=[job,subprocesses]
-    else:
-        sta=findall(charge,'Njob')
-        job=sta.index(str(subprocesses[1][ended]))
-        subprocesses[0].pop(ended)
-        subprocesses[1].pop(ended)
-        result=[job,subprocesses]
-    return result
-
-def delete(charge,ended,names):
-    """delete a job"""
-    index=[]
-    for varname in names:
-        n=0
-        for i in range(len(charge[0])):
-            if varname == charge[0][i]:
-                if n == ended:
-                    index.append(i)
-                n=n+1
-    index.sort()
-    for i in range(len(index)-1,-1,-1):
-        charge[0].pop(index[i])
-        charge[1].pop(index[i])
+def applydefaults(charge,defaults): # May be useless
+    """Apply the default settings if left undefined"""
+    for jobid in charge:
+        job = charge[jobid]
+        for key in ('RAM','Ncpu','HDmemory','priority'):
+            if isundefined(job.get(key)):
+                job[key] = defaults[key]
     return charge
 
-def makelist(tot,a,b):
-    """create a list from variables"""
-    l1=tot[0]
-    l2=tot[1]
-    l1.append(a)
-    l2.append(b)
-    tot=[l1,l2]
-    return tot
+def find_queued_jobs(charge): # New function
+    """ find the jobs that are in "que" status"""
+    que_jobs = {}
+    for jobid in charge:
+        job = charge[jobid]
+        if job['status'] == 'que':
+            que_jobs[jobid] = job
+    return que_jobs
 
-def cleanstatus(status):
-    """Clean up the machine status at startup"""
-    status=replace(status,'up','status',0)
-    status=replace(status,'0','RAM',0)
-    status=replace(status,'0','Ncpu',0)
-    status=replace(status,'0','HDmemory',0)
-    ls=os.listdir(MDIR)
-    for lsi in ls:
-        if lsi.startswith(FILE5) or lsi.startswith(FILE8):
-            infile=lsi.split('.')[0]
-            os.remove(MDIR+infile+'.mns')
-    charge=readallfile(FILE2)
-    pid=findall(charge,'pid')
-    run=findall(charge,'status')
-    for i, pidi in enumerate(pid):
-        if run[i] == 'run':
-            try:
-                tokill=getpid(pidi,'all')
-                os.kill(int(pidi),SIGTERM)
-                for kill in tokill:
-                    os.kill(int(kill),SIGTERM)
-            except:
-                pass
-    writemessage('All jobs killed')
-    writeallfile(FILE2,[[],[]])
-    start=readallfile(FILE6)
-    start=replace(start,'up','status',0)
-    writeallfile(FILE6,start)
-    writemessage('status machine cleaned')
+def holdchained(queue,charge):
+    """Leave out of the queue the jobs chained to an earlier job (msub -l):
+    they wait while a job with that script is queued or running"""
+    order = list(charge)
+    ready = {}
+    for jobid in queue:
+        chain = queue[jobid].get('chain','none')
+        earlier = order[:order.index(jobid)]
+        if chain != 'none' and any(charge[other]['script'] == chain for other in earlier):
+            continue
+        ready[jobid] = queue[jobid]
+    return ready
+
+def sortbypriority(jobs): # New function
+    """ Sort the jobs by priority """
+    id_prior = []
+    for jobid in jobs:
+        job = jobs[jobid]
+        id_prior.append([jobid, job['priority']])
+    id_prior.sort(key=lambda x: x[1], reverse=True)
+    return id_prior  
+
+def find_available_resources(status,realvalue): # New function
+    """Find the available resources"""
+    used_cpu = status['Ncpu']
+    used_ram = status['RAM']
+    used_hd = status['HDmemory']
+    free_cpu = realvalue['Ncpu'] - used_cpu
+    free_ram = realvalue['RAM'] - used_ram
+    free_hd = realvalue['HDmemory'] - used_hd
+    # every job needs a cpu; whether it also fits in RAM and disk is
+    # checked job by job: a node without disk (HDmemory 0) still runs jobs
+    free_space = free_cpu > 0
+    available = {'free_space': free_space, 'Ncpu': free_cpu, 'RAM': free_ram, 'HDmemory': free_hd}
+    return available
+
+def check_for_submissions(available,priority_list,queue): # New function
+    # It replaces the test... functions
+    """Check for the jobs to be submitted
+
+    Jobs start in priority order: a job that does not fit yet blocks the
+    ones after it, otherwise a stream of small jobs could starve a big one."""
+    free_cpu = available['Ncpu']
+    free_ram = available['RAM']
+    free_hd = available['HDmemory']
+    to_be_submitted = []
+    for i in range(len(priority_list)):
+        jobid = priority_list[i][0]
+        job = queue[jobid]
+        if free_cpu >= job['Ncpu'] and free_ram >= job['RAM'] and free_hd >= job['HDmemory']:
+            to_be_submitted.append(jobid)
+            free_cpu -= job['Ncpu']
+            free_ram -= job['RAM']
+            free_hd -= job['HDmemory']
+        else:
+            break
+    return to_be_submitted
+
+def isrunning(pid):
+    """Check if a process is alive
+
+    Jobs are children of the demon: an ended child stays a zombie, which
+    still looks alive, until it is reaped here."""
+    try:
+        ended, _ = os.waitpid(pid,os.WNOHANG)
+        return ended == 0
+    except ChildProcessError: # not a child, or already reaped
+        pass
+    try:
+        os.kill(pid,0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass
+    return True
+
+def jobcommand(job):
+    """The command line the demon runs a job with"""
+    return ["runuser","-u",job['user'],"--",job['script']]
+
+def isjobprocess(job):
+    """True if the pid of a job still belongs to it
+
+    After a crash or a reboot the pid may belong to another process."""
+    try:
+        with open(f"/proc/{int(job['pid'])}/cmdline",'rb') as filein:
+            cmdline = filein.read().split(b'\0')[:-1]
+    except (OSError, ValueError):
+        return False
+    return cmdline == [arg.encode() for arg in jobcommand(job)]
+
+def killjob(job):
+    """Terminate a running job with all its processes
+
+    Each job runs in its own session led by runuser: the whole process group
+    is signalled, since killing runuser alone leaves the job running."""
+    try:
+        os.killpg(int(job['pid']),SIGTERM)
+    except (OSError, ValueError): # it has just ended
+        pass
+
+def endjob(charge, status, messf): # New function
+    """find the ended jobs"""
+    for jobid in list(charge):
+        job = charge[jobid]
+        if job['status'] == 'run' and not isrunning(int(job['pid'])):
+            writemessage(f"Job {job['script']} ended",messf)
+            update_status(status,job,-1)
+            delete(jobid,charge)
+    return charge, status
+
+def delete(jobid, jobs): # New function
+    """delete a job"""
+    deleted = jobs.pop(jobid,None)
+    return deleted
+
+def update_status(status,job,val): # New function
+    """Update the machine status"""
+    status['Ncpu'] = status['Ncpu'] + job['Ncpu'] * val
+    status['RAM'] = status['RAM'] + job['RAM'] * val
+    status['HDmemory'] = status['HDmemory'] + job['HDmemory'] * val
+
+def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",messf="messages",keep=True): # New function
+    """Clean up the machine status at startup and stop
+
+    Running jobs are killed.  The pending jobs, queued or submitted while
+    the demon was down, are kept for the next run unless keep is False."""
+    mess = f"{Mdir}/{messf}"
+    # clean the status file, keeping the job counter
+    status["status"] = "up"
+    status["RAM"] = 0
+    status["Ncpu"] = 0
+    status["HDmemory"] = 0
+    # kill running jobs
+    charge = readallfile(chargef)
+    for jobid in list(charge):
+        job = charge[jobid]
+        if job['status'] == 'run':
+            if isjobprocess(job):
+                killjob(job)
+            delete(jobid,charge)
+        elif not keep:
+            delete(jobid,charge)
+    writeallfile(chargef,charge)
+    writemessage('All running jobs killed',mess)
+    if keep:
+        writemessage(f"{len(pendingjobs(Mdir,chargef,subjob))} pending jobs kept",mess)
+    else:
+        Rdir = requestdir(Mdir)
+        for f in os.listdir(Rdir):
+            if f.startswith(remove) or f.startswith(subjob):
+                os.remove(Rdir+f)
+        writemessage('Pending jobs deleted',mess)
+    start = readallfile(statusf)
+    start["status"] = "up"
+    writeallfile(statusf,start)
+    writemessage('status machine cleaned',mess=f"{Mdir}/{messf}")
     return status
 
-def checkdemon(file6):
-    """Check if the demon must run or stop"""
-    stop=readallfile(file6)
-    if findall(stop,'status')[0] == 'stop':
-        status=readallfile(FILE3)
-        cleanstatus(status)
-        stop=replace(stop,'down','status',0)
-        writeallfile(file6,stop)
-        writemessage('---MINOSSE STOPS---')
-        sys.exit(0)
-
-def checkdeletedjob(file7,file2,variables):
-    """check the requests of deleting jobs"""
-    writejob(MDIR,FILE8,file7)
-    inp=readallfile(file7)
-    if inp != [[],[]] :
-        jid=findall(inp,'id')
-        script=findall(inp,'script')
-        opt=findall(inp,'priority')
-        user=findall(inp,'user')
-        for i, idi in enumerate(jid):
-            if idi != 'none' or script[i] != 'none' :
-                charge=readallfile(file2)
-                ljob=findall(charge,'id')
-                lscript=findall(charge,'script')
-                luser=findall(charge,'user')
-                for j, ljobj in enumerate(ljob):
-                    if ((ljobj == idi or lscript[j] == script[i]) and
-                        ( luser[j] == user[i]  or user[i] == 'root')):
-                        writemessage('killing job '+lscript[j])
-                        if findall(charge,'status')[j] == 'run':
-                            try:
-                                pid=findall(charge,'pid')[j]
-                                tokill=getpid(pid,opt[i])
-                                if opt[i] == 'all':
-                                    os.kill(int(pid),SIGTERM)
-                                for kill in tokill:
-                                    os.kill(int(kill),SIGTERM)
-                            except:
-                                pass
-                                ## patch 16 june 2008
-                                ##charge=delete(charge,j,varnames)
-                                ##writeallfile(file2,charge)
-                                ##inp=replace(inp,'none','id',i)
-                                ##writeallfile(file7,inp)
-                        else:
-                            charge=delete(charge,j,variables)
-                            writeallfile(file2,charge)
-                            ##inp=replace(inp,'none','id',i)
-                            ##writeallfile(file7,inp)
-        inp=[[], []]
-        writeallfile(file7,inp)
-
-def writejob(mdir,filea,fileb):
-    """check the new submitted job"""
-    lsoutput=os.listdir(mdir)
-    for lsi in lsoutput:
-        if lsi.startswith(filea):
-            tmp=[]
-            charge=[[],[]]
-            infile=lsi.split('.')[0]
-            tmp=readallfile(mdir+infile)
-            scripta=findall(tmp,'script')
-            inch=readallfile(fileb)
-            scriptb=findall(inch,'script')
-            if scripta[0] in scriptb :
+def pendingjobs(Mdir,chargef,subjob="subjob"):
+    """The jobs waiting to run, as (user, script): the queued ones and the
+    submissions not read yet"""
+    pending = [(job['user'],job['script']) for job in readallfile(chargef).values()
+               if job['status'] == 'que']
+    Rdir = requestdir(Mdir)
+    for f in sorted(os.listdir(Rdir)):
+        if f.startswith(subjob) and f.endswith('.mns'):
+            try:
+                user, job = readrequest(Rdir+f)
+                pending.append((user,job.get('script')))
+            except (OSError, ValueError, AttributeError): # rejected later
                 pass
+    return pending
+
+def checkdemon(file6,file2,file3,mess): # Updated function
+    """Check if the demon must run or stop"""
+    stop = readallfile(file6)
+    if stop['status'] == 'stop':
+        Mdir = os.path.dirname(file6)+'/'
+        status = cleanstatus(readallfile(file3),Mdir,file2,file6)
+        writeallfile(file3,status)
+        stop['status'] = 'down'
+        writeallfile(file6,stop)
+        writemessage('---MINOSSE STOPS---',mess)
+        sys.exit(0)
+    return
+
+def checkdeletedjob(file7,file2,file3,mess): # Updated function
+    """check the requests of deleting jobs, collected by writejob"""
+    inp = readallfile(file7)
+    if not inp:
+        return
+    alljobs = readallfile(file2)
+    status = readallfile(file3)
+    for delid in inp:
+        delinst = inp[delid]
+        duser = delinst['user']
+        if delinst.get('id'):
+            targets = [str(delinst['id'])]
+        else:
+            targets = [jobid for jobid in alljobs
+                       if alljobs[jobid]['script'] == delinst.get('script')]
+        for jobid in targets:
+            job = alljobs.get(jobid)
+            if job is None:
+                writewarning(f"{duser} tried to delete job {jobid}, which does not exist",mess)
+            elif job['user'] != duser:
+                writewarning(f"{duser} tried to delete job {jobid} of {job['user']}",mess)
             else:
-                charge[0]=inch[0]+tmp[0]
-                charge[1]=inch[1]+tmp[1]
-                writeallfile(fileb,charge)
-            os.remove(mdir+infile+'.mns')
+                if job['status'] == 'run':
+                    killjob(job)
+                    update_status(status,job,-1)
+                delete(jobid,alljobs)
+                writemessage(f"job {jobid} {job['script']} deleted",mess)
+    writeallfile(file2,alljobs)
+    writeallfile(file3,status)
+    writeallfile(file7,{})
+    return
 
-def getpid(pid,opt):
-    """extract the pid of all child processes"""
-    pppp,ppp,pall=[],[],[]
-    ps=os.popen('pstree -lp '+str(pid)).readlines()
-    for line in ps:
-        a,b,pp=[],[],[]
-        for j, linej in enumerate(line):
-            if '(' == linej:
-                a.append(j)
-            if ')' == linej:
-                b.append(j)
-        for j, aj in enumerate(a):
-            p=''
-            for k in range(aj+1,b[j]):
-                p=p+str((line[k]))
-            pp.append(p)
-            pall.append(p)
-        ppp.append(pp)
-    for pppi in ppp:
-        pppp.append(pppi[len(pppi)-1])
-    if opt == 'all':
-        get=pall
-    else:
-        get=pppp
-    return get
+def readrequest(filename):
+    """Read a request file written by a user, returning (owner, content)
 
-def ifrunning():
+    Request directories are world-writable, so links and special files are
+    refused, and the owner of the file, not its content, names the user."""
+    fd = os.open(filename,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    with os.fdopen(fd,encoding='utf-8') as filein:
+        info = os.fstat(filein.fileno())
+        if not S_ISREG(info.st_mode):
+            raise ValueError('not a regular file')
+        content = json.load(filein)
+    try:
+        return pwd.getpwuid(info.st_uid).pw_name, content
+    except KeyError: # a deleted user, for example
+        raise ValueError(f"unknown owner {info.st_uid}") from None
+
+def requestname(prefix):
+    """A unique name for a request file, sorting in submission order"""
+    return f"{prefix}{time.time_ns()}_{os.getpid()}"
+
+def collectrequests(Rdir,prefix,mess):
+    """Read and remove the requests in Rdir, in submission order
+
+    Returns {name: request}; the user of a request is the owner of its file."""
+    requests = {}
+    for f in sorted(os.listdir(Rdir)):
+        if f.startswith(prefix) and f.endswith('.mns'):
+            try:
+                user, request = readrequest(Rdir + f)
+                request['user'] = user
+            except (OSError, ValueError, TypeError) as error:
+                writewarning(f"request {f} rejected: {error}",mess)
+            else:
+                requests[f[len(prefix):-len('.mns')]] = request
+            os.remove(Rdir + f)
+    return requests
+
+def writejob(Rdir,fileA,fileB,mess):
+    """add the new requests to the tracked ones"""
+    tracked = readallfile(fileB)
+    tracked.update(collectrequests(Rdir,fileA,mess))
+    writeallfile(fileB, tracked)
+
+def invalidjob(job,node):
+    """Why a submitted job can never run on the node, or None"""
+    for key in ('Ncpu','RAM','HDmemory','priority'):
+        value = job.get(key)
+        if not isinstance(value,int) or isinstance(value,bool):
+            return f"{key} must be an integer"
+    if job['Ncpu'] < 1:
+        return "at least one cpu is needed"
+    for key in ('RAM','HDmemory'):
+        if job[key] < 0:
+            return f"{key} must not be negative"
+    for key in ('Ncpu','RAM','HDmemory'):
+        if job[key] > node[key]:
+            return f"{key} {job[key]} exceeds the node ({node[key]})"
+    script = job.get('script')
+    if not isinstance(script,str) or not script.startswith('/'):
+        return "the script must be an absolute path"
+    return None
+
+def submitjobs(Rdir,fileA,file2,file3,node,mess):
+    """queue the new submitted jobs, giving them increasing ids
+
+    The last id is kept in the status file, so ids are never reused."""
+    charge = readallfile(file2)
+    status = readallfile(file3)
+    for job in collectrequests(Rdir,fileA,mess).values():
+        error = invalidjob(job,node)
+        if error:
+            writewarning(f"job {job.get('script')} of {job['user']} rejected: {error}",mess)
+            continue
+        status['lastid'] = status.get('lastid',0) + 1
+        while str(status['lastid']) in charge:
+            status['lastid'] += 1
+        jobid = str(status['lastid'])
+        # only the demon decides these
+        job.update(id=jobid, status='que', pid='', runtime='')
+        job.setdefault('subtime',time.strftime("%m/%d/%y %H.%M.%S", time.localtime()))
+        charge[jobid] = job
+        writemessage(f"Job {jobid} {job['script']} queued",mess)
+    writeallfile(file2,charge)
+    writeallfile(file3,status)
+             
+def demonpids(Mdir):
+    """The pids of the Minosse demons running from Mdir
+
+    Read from /proc: depending on the environment, ps cuts long command
+    lines."""
+    demon = f"{Mdir}Minosse.py".encode()
+    pids = []
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/cmdline",'rb') as filein:
+                args = filein.read().split(b'\0')
+        except OSError: # it has just ended
+            continue
+        # a Python interpreter running the demon, not an editor opening it
+        if len(args) > 1 and b'python' in os.path.basename(args[0]) and args[1] == demon:
+            pids.append(int(pid))
+    return pids
+
+def ifrunning(Mdir):
     """check if minosse is running"""
-    ps=os.popen('ps -eo args | grep Minosse.py').readlines()
-    status='down'
-    a=[]
-    for line in ps:
-        path=line.split()[1]
-        if path == MDIR+'Minosse.py':
-            status='ok'
-            a.append('ok')
-    if len(a) > 1 :
+    running = demonpids(Mdir)
+    if len(running) > 1 :
         print('')
         print ('-'*40)
         print ('more than one minosse demon running!')
         print ('-'*40,'\n')
         sys.exit(0)
-    if status == 'down':
+    if not running:
         print('')
         print ('-'*40)
         print ('no minosse demon running!')
         print('activate minosse with:\t sudo minosse start')
         print ('-'*40,'\n')
-        sys.exit(0)
-
-def chainjob(charge):
-    """check if the jobs are chained"""
-    script=findall(charge,'script')
-    chain=findall(charge,'chain')
-    for i, chaini in enumerate(chain):
-        if chaini != 'none':
-            for scriptj in script:
-                if chaini == scriptj:
-                    charge=delete(charge,i,varnames)
-    return charge
+        sys.exit(0)     
+    return
