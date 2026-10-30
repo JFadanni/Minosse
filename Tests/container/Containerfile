@@ -1,0 +1,21 @@
+# Simulated Minosse server: a single Debian workstation with a root-run
+# daemon, two unprivileged users and a /scratch work partition (mounted
+# as tmpfs at run time, see run_tests.sh).
+FROM docker.io/library/debian:bookworm-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 python3-pytest procps psmisc util-linux \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash alice \
+ && useradd -m -s /bin/bash bob \
+ && mkdir -p /scratch
+
+# minosse_install.sh checks $USER, which is not set in containers by default.
+# The sources are mounted read-only, so keep Python from writing bytecode.
+ENV USER=root \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /src
+CMD ["python3", "-m", "pytest", "-p", "no:cacheprovider", "/src/Tests"]
