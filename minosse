@@ -15,8 +15,6 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
-#
-#Minosse version 1.3.0, 12th Nov 2023
 #---------------------------------------------------------------------------------
 
 case "$1" in
@@ -27,7 +25,31 @@ case "$1" in
 			exit
 		else 
             cd $instdir
-			nohup $instdir/Minosse.py > /dev/null 2>&1 &
+			# jobs queued before the last stop, or submitted meanwhile
+			pending=$(python3 -c "from Mutil import *
+for user, script in pendingjobs('$instdir/', '$instdir/charge'):
+    print(f'   {user}\t{script}')")
+			option=''
+			if [[ -n $pending ]]; then
+				echo -e '\nJobs still waiting from the last run:'
+				echo "$pending"
+				case "$2" in
+					--keep) keep='yes' ;;
+					--delete) keep='no' ;;
+					*)
+						echo 'Keep them? [Yes/no]'
+						read keep
+					;;
+				esac
+				# only an explicit no deletes the jobs of the users
+				if [[ $keep = 'no' || $keep = 'No' || $keep = 'n' || $keep = 'N' ]]; then
+					option='--delete-pending'
+					echo 'Pending jobs deleted'
+				else
+					echo 'Pending jobs kept'
+				fi
+			fi
+			nohup $instdir/Minosse.py $option > /dev/null 2>&1 &
 			echo 'Starting Minosse ...'
 			sleep 2
 			echo 'Minosse demon started'
@@ -39,14 +61,19 @@ case "$1" in
 			sed -i s/up/stop/ $instdir/conf.mns 
 			echo 'Stopping Minosse ...' 
 			sleep 2
-			echo 'Minosse demon stopped'
+			echo 'Minosse demon stopped: running jobs killed, queued jobs kept'
 		else 
 			echo -e '\n no Minosse demon running\n'
 		fi
 	;;
+	version)
+		echo "Minosse $(cat $instdir/VERSION)"
+	;;
 	*)
-		echo -e "\nUsage: minosse start/stop"
-		echo -e '  start or stop the minosse queue demon\n'
+		echo -e "\nUsage: minosse start [--keep|--delete] / stop / version"
+		echo -e '  start or stop the minosse queue demon'
+		echo -e '  --keep, --delete: keep or delete the jobs still waiting'
+		echo -e '  from the last run, without asking\n'
 		exit
 	;;
 esac

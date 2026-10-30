@@ -16,9 +16,9 @@
  
  You should have received a copy of the GNU General Public License
  along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
- 
- Minosse version 1.3.0
- ---------------------------------------------------------'
+ '
+ echo " Minosse version $(cat VERSION)"
+ echo ' ---------------------------------------------------------'
 
  function fatal { 
 	echo ' '
@@ -92,6 +92,7 @@ fi
 
 cp COPYING $instdir
 cp README.md $instdir
+cp VERSION $instdir
 
 mv Tmp/conf.mns $instdir
 mv Tmp/charge.mns $instdir
@@ -116,8 +117,11 @@ chmod u+x $instdir/minosse_uninst.sh
 chmod a+x $instdir/Msub.py
 chmod a+x $instdir/Mdel.py
 chmod a+x $instdir/Mstat.py
-chmod a+wr $instdir
-chmod a+wr $instdir/delete.mns
+# users must not write where the Python modules are: they would be imported
+chmod 755 $instdir
+# users drop their requests here; sticky, so they cannot touch the others'
+mkdir $instdir/requests
+chmod 1777 $instdir/requests
 chmod a+r  $instdir/charge.mns
 
 echo -e '\nwhere do you want to create the executable links?[/usr/local/bin]'

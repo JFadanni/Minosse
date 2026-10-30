@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import time
-import json
 from   subprocess import *
+from   argparse   import ArgumentParser
 
 from    Mutil      import *
+from    Mutil      import __version__
 
 """ Minosse a Python-based batch system
 
@@ -30,8 +30,6 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
 ##------------------------------------------------------------------------------
@@ -57,7 +55,19 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
+##------------------------------------------------------------------------------
+## Flags
+##------------------------------------------------------------------------------
 
+parser = ArgumentParser(description="The Minosse demon (started by minosse start)")
+
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("--delete-pending",
+                    action="store_true", dest="delete", default=False,
+                    help="delete the jobs still waiting from the last run")
+
+options = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -66,7 +76,7 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 ifrunning(Mdir)
 writeinitializationmessage(mess)
 status=readallfile(file3)
-status=cleanstatus(status,Mdir,file2,file6)
+status=cleanstatus(status,Mdir,file2,file6,keep=not options.delete)
 writeallfile(file3,status)
 realvalue=readallfile(file1)
 defaults=readallfile(file4)
@@ -75,30 +85,28 @@ while 1:
     ## read files
     status=readallfile(file3)
     charge=readallfile(file2)
-#    charge=chainjob(charge)
     ## test free slots for the requests
     available_resources = find_available_resources(status,realvalue)
-    queue = find_queued_jobs(charge)
+    queue = holdchained(find_queued_jobs(charge),charge)
     if available_resources['free_space'] and queue:
         priority_list = sortbypriority(queue)
         jobs_to_submit = check_for_submissions(available_resources,priority_list,queue)
 
         for jobid in jobs_to_submit:
             job = charge[jobid]
-            user = job['user']
             script = job['script']
             try:
-                subpro=Popen([f"runuser -u {user} {script}"],shell=True)
-                pid=subpro.pid
-                errors=subpro.errors
-                if (errors):
-                    writewarning(f"submission error {str(errors)}",mess)
-                job['pid'] = pid
+                # no shell: the script name must not be able to run commands as root;
+                # a session of its own, so that the whole job can be killed;
+                # the directory of the script, since users cannot write in Mdir
+                subpro=Popen(jobcommand(job),start_new_session=True,
+                             cwd=os.path.dirname(script))
+                job['pid'] = subpro.pid
                 job['status'] = 'run'
                 job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())
                 writemessage(f"Job {script} submitted",mess)
                 update_status(status,job,1)
-            except:
+            except OSError:
                 writewarning(f"Unable to run, something wrong in the {script} script",mess)
                 deleted = delete(jobid,charge)
                 if deleted:
@@ -117,10 +125,11 @@ while 1:
     writeallfile(file3,status)
     writeallfile(file2,charge)
     ## check for jobs to be deleted
-    checkdeletedjob(file7,file2,file8,file3)
+    writejob(requestdir(Mdir),file8,file7,mess)
+    checkdeletedjob(file7,file2,file3,mess)
     ## check the stop file wich control the minosse  demon
-    checkdemon(file6,file3,mess)
+    checkdemon(file6,file2,file3,mess)
     ## write in the charge file the new submitted job
-    writejob(Mdir,file5,file2)
+    submitjobs(requestdir(Mdir),file5,file2,file3,realvalue,mess)
     ## waiting time
     time.sleep(1)
