@@ -189,6 +189,31 @@ def isrunning(pid):
         pass
     return True
 
+def jobcommand(job):
+    """The command line the demon runs a job with"""
+    return ["runuser","-u",job['user'],"--",job['script']]
+
+def isjobprocess(job):
+    """True if the pid of a job still belongs to it
+
+    After a crash or a reboot the pid may belong to another process."""
+    try:
+        with open(f"/proc/{int(job['pid'])}/cmdline",'rb') as filein:
+            cmdline = filein.read().split(b'\0')[:-1]
+    except (OSError, ValueError):
+        return False
+    return cmdline == [arg.encode() for arg in jobcommand(job)]
+
+def killjob(job):
+    """Terminate a running job with all its processes
+
+    Each job runs in its own session led by runuser: the whole process group
+    is signalled, since killing runuser alone leaves the job running."""
+    try:
+        os.killpg(int(job['pid']),SIGTERM)
+    except (OSError, ValueError): # it has just ended
+        pass
+
 def endjob(charge, status, messf): # New function
     """find the ended jobs"""
     for jobid in list(charge):
@@ -226,10 +251,8 @@ def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",mess
     for jobid in list(charge):
         job = charge[jobid]
         if job['status'] == 'run':
-            try:
-                os.kill(int(job['pid']),SIGTERM)
-            except (OSError, ValueError):
-                pass
+            if isjobprocess(job):
+                killjob(job)
             delete(jobid,charge)
         elif not keep:
             delete(jobid,charge)
@@ -300,10 +323,7 @@ def checkdeletedjob(file7,file2,file3,mess): # Updated function
                 writewarning(f"{duser} tried to delete job {jobid} of {job['user']}",mess)
             else:
                 if job['status'] == 'run':
-                    try:
-                        os.kill(int(job['pid']),SIGTERM)
-                    except ProcessLookupError: # it has just ended
-                        pass
+                    killjob(job)
                     update_status(status,job,-1)
                 delete(jobid,alljobs)
                 writemessage(f"job {jobid} {job['script']} deleted",mess)

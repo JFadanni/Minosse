@@ -96,11 +96,13 @@ while 1:
 
         for jobid in jobs_to_submit:
             job = charge[jobid]
-            user = job['user']
             script = job['script']
             try:
-                # no shell: the script name must not be able to run commands as root
-                subpro=Popen(["runuser","-u",user,"--",script])
+                # no shell: the script name must not be able to run commands as root;
+                # a session of its own, so that the whole job can be killed;
+                # the directory of the script, since users cannot write in Mdir
+                subpro=Popen(jobcommand(job),start_new_session=True,
+                             cwd=os.path.dirname(script))
                 job['pid'] = subpro.pid
                 job['status'] = 'run'
                 job['runtime'] = time.strftime("%m/%d/%y %H.%M.%S", time.localtime())

@@ -167,13 +167,17 @@ class Sandbox:
                               timeout=30, env=env)
 
     def job_script(self, name, seconds=0):
-        """A job that records who ran it, sleeps, then records completion."""
+        """A job that records who ran it and where, sleeps in a child
+        process, then records completion."""
         script = self.jobs / f"{name}.sh"
         script.write_text(
             "#!/bin/bash\n"
             f"echo $$ > {self.jobs}/{name}.pid\n"
+            f"pwd > {self.jobs}/{name}.cwd\n"
             f"id -un > {self.jobs}/{name}.started\n"
-            f"sleep {seconds}\n"
+            f"sleep {seconds} &\n"
+            f"echo $! > {self.jobs}/{name}.child\n"
+            "wait\n"
             f"touch {self.jobs}/{name}.done\n")
         os.chmod(script, 0o755)
         return script
@@ -185,9 +189,11 @@ class Sandbox:
     def done(self, name):
         return (self.jobs / f"{name}.done").exists()
 
-    def job_pid(self, name):
-        marker = self.jobs / f"{name}.pid"
-        return int(marker.read_text()) if marker.exists() else None
+    def job_pid(self, name, kind="pid"):
+        """The pid of the job script, or of its child with kind="child"."""
+        marker = self.jobs / f"{name}.{kind}"
+        text = marker.read_text().strip() if marker.exists() else ""
+        return int(text) if text else None
 
     def find_job(self, script):
         """The (id, entry) of the charge.mns job running script, if any."""

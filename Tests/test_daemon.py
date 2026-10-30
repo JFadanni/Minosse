@@ -135,6 +135,8 @@ def test_job_runs_as_the_submitting_user(sandbox, daemon):
     msub(sandbox, sandbox.job_script("a", 5), "-c", 1, "-m", 100)
     daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
     assert sandbox.started_by("a") == "alice"
+    # Users cannot write in the install directory: jobs run in their own.
+    assert (sandbox.jobs / "a.cwd").read_text().strip() == str(sandbox.jobs)
 
 
 def test_running_job_is_tracked(sandbox, daemon):
@@ -239,11 +241,15 @@ def test_mdel_removes_a_queued_job(sandbox, daemon):
 def test_mdel_kills_a_running_job(sandbox, daemon):
     script = sandbox.job_script("a", 30)
     msub(sandbox, script, "-c", 2, "-m", 300)
-    daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
+    child = daemon.wait_for(lambda: sandbox.job_pid("a", "child"),
+                            "job a to start its child")
     jobid, _ = sandbox.find_job(script)
     assert mdel(sandbox, "-j", jobid).returncode == 0
     daemon.wait_for(lambda: not process_alive(sandbox.job_pid("a")),
                     "job a's script to be killed")
+    # Otherwise the program run by the script would go on, untracked.
+    daemon.wait_for(lambda: not process_alive(child),
+                    "job a's child to be killed")
     daemon.wait_for(lambda: sandbox.find_job(script) is None,
                     "job a to leave charge.mns")
     status = sandbox.read("status")
@@ -277,7 +283,8 @@ def test_mdel_cannot_delete_another_users_job(sandbox, daemon):
 
 def test_minosse_stop(sandbox, daemon):
     msub(sandbox, sandbox.job_script("a", 30))
-    daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
+    child = daemon.wait_for(lambda: sandbox.job_pid("a", "child"),
+                            "job a to start its child")
     # What "minosse stop" does:
     subprocess.run(["sed", "-i", "s/up/stop/", sandbox.path("conf")],
                    check=True)
@@ -285,6 +292,7 @@ def test_minosse_stop(sandbox, daemon):
     assert sandbox.read("conf") == {"status": "down"}
     assert sandbox.read("charge") == {}
     assert wait_until(lambda: not process_alive(sandbox.job_pid("a")))
+    assert wait_until(lambda: not process_alive(child))
     assert "---MINOSSE STOPS---" in sandbox.messages()
 
 

@@ -10,6 +10,7 @@ import pwd
 import signal
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -23,7 +24,25 @@ ME = pwd.getpwuid(os.getuid()).pw_name
 
 @pytest.fixture
 def sleeper():
-    proc = subprocess.Popen(["sleep", "60"])
+    """A process leading its own session, as the daemon starts jobs."""
+    proc = subprocess.Popen(["sleep", "60"], start_new_session=True)
+    yield proc
+    proc.kill()
+    proc.wait()
+
+
+@pytest.fixture
+def jobproc(tmp_path):
+    """A process that looks like a job started by the daemon: its command
+    line is "runuser -u ME -- /jobs/a.sh" and it leads its own session.
+
+    Running runuser needs root, so this is Python (-u: unbuffered) running a
+    file named after ME, with "--" and the script as its arguments."""
+    (tmp_path / ME).write_text("import time\ntime.sleep(60)\n")
+    proc = subprocess.Popen(Mutil.jobcommand(job(user=ME)),
+                            executable=sys.executable, cwd=tmp_path,
+                            start_new_session=True)
+    assert wait_until(lambda: Mutil.isjobprocess(job(user=ME, pid=proc.pid)))
     yield proc
     proc.kill()
     proc.wait()
@@ -245,6 +264,39 @@ def test_delete():
 
 
 # ---------------------------------------------------------------------------
+# job processes
+# ---------------------------------------------------------------------------
+
+def test_jobcommand():
+    assert Mutil.jobcommand(job(user="alice", script="/jobs/a.sh")) == [
+        "runuser", "-u", "alice", "--", "/jobs/a.sh"]
+
+
+def test_isjobprocess(jobproc, sleeper):
+    assert Mutil.isjobprocess(job(user=ME, pid=jobproc.pid))
+    assert not Mutil.isjobprocess(job(user=ME, pid=jobproc.pid,
+                                      script="/jobs/other.sh"))
+    assert not Mutil.isjobprocess(job(user=ME, pid=sleeper.pid))
+    assert not Mutil.isjobprocess(job(user=ME, pid=dead_pid()))
+    assert not Mutil.isjobprocess(job(user=ME, pid=""))
+
+
+def test_killjob_kills_the_whole_job():
+    # The script and the program it runs, as a job started by the daemon.
+    proc = subprocess.Popen(["bash", "-c", "sleep 60 & echo $!; wait"],
+                            stdout=subprocess.PIPE, text=True,
+                            start_new_session=True)
+    child = int(proc.stdout.readline())
+    Mutil.killjob(job(status="run", pid=proc.pid))
+    assert proc.wait(timeout=5) == -signal.SIGTERM
+    assert wait_until(lambda: not os.path.exists(f"/proc/{child}"))
+
+
+def test_killjob_of_an_ended_job():
+    Mutil.killjob(job(status="run", pid=dead_pid()))
+
+
+# ---------------------------------------------------------------------------
 # endjob
 # ---------------------------------------------------------------------------
 
@@ -292,8 +344,8 @@ def test_endjob_reaps_finished_child(tmp_path):
 # daemon start/stop
 # ---------------------------------------------------------------------------
 
-def test_cleanstatus_resets_the_node(sandbox, sleeper):
-    sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid),
+def test_cleanstatus_resets_the_node(sandbox, jobproc):
+    sandbox.write("charge", {"1": job(user=ME, status="run", pid=jobproc.pid),
                              "2": job(status="que", script="/jobs/b.sh")})
     sandbox.request("subjob123", {"script": "/jobs/c.sh"})
     sandbox.request("remove456", {"id": "2"})
@@ -307,7 +359,7 @@ def test_cleanstatus_resets_the_node(sandbox, sleeper):
     assert status == {"status": "up", "Ncpu": 0, "RAM": 0, "HDmemory": 0,
                       "lastid": 41}
     assert sandbox.read("conf") == {"status": "up"}
-    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert jobproc.wait(timeout=5) == -signal.SIGTERM
     # By default the pending jobs wait for the next run.
     assert sandbox.read("charge") == {"2": job(status="que",
                                                script="/jobs/b.sh")}
@@ -317,8 +369,8 @@ def test_cleanstatus_resets_the_node(sandbox, sleeper):
     assert "status machine cleaned" in sandbox.messages()
 
 
-def test_cleanstatus_can_delete_pending_jobs(sandbox, sleeper):
-    sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid),
+def test_cleanstatus_can_delete_pending_jobs(sandbox, jobproc):
+    sandbox.write("charge", {"1": job(user=ME, status="run", pid=jobproc.pid),
                              "2": job(status="que")})
     sandbox.request("subjob123", {"script": "/jobs/c.sh"})
     sandbox.request("remove456", {"id": "2"})
@@ -326,11 +378,22 @@ def test_cleanstatus_can_delete_pending_jobs(sandbox, sleeper):
     Mutil.cleanstatus({"Ncpu": 1, "RAM": 1, "HDmemory": 0}, sandbox.mdir,
                       sandbox.base("charge"), sandbox.base("conf"),
                       keep=False)
-    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert jobproc.wait(timeout=5) == -signal.SIGTERM
     assert sandbox.read("charge") == {}
     assert sandbox.pending("subjob") == sandbox.pending("remove") == []
     assert (sandbox.requests / "notes.txt").exists()
     assert "Pending jobs deleted" in sandbox.messages()
+
+
+def test_cleanstatus_spares_processes_that_reused_a_job_pid(sandbox,
+                                                             sleeper):
+    # After a crash or a reboot, the pid of a job may belong to anything.
+    sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid)})
+    Mutil.cleanstatus({"Ncpu": 1, "RAM": 1, "HDmemory": 0}, sandbox.mdir,
+                      sandbox.base("charge"), sandbox.base("conf"))
+    assert sandbox.read("charge") == {}
+    time.sleep(0.5)
+    assert sleeper.poll() is None
 
 
 def test_pendingjobs_lists_queued_and_unread_submissions(sandbox):
@@ -358,9 +421,9 @@ def test_checkdemon_keeps_running_while_up(sandbox):
     assert checkdemon(sandbox) is None
 
 
-def test_checkdemon_stops_on_request(sandbox, sleeper):
+def test_checkdemon_stops_on_request(sandbox, jobproc):
     sandbox.write("conf", {"status": "stop"})
-    sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid,
+    sandbox.write("charge", {"1": job(user=ME, status="run", pid=jobproc.pid,
                                       Ncpu=2),
                              "2": job(status="que")})
     sandbox.write("status", {**sandbox.read("status"), "Ncpu": 2})
@@ -371,7 +434,7 @@ def test_checkdemon_stops_on_request(sandbox, sleeper):
     # The queued job waits for the next start.
     assert sandbox.read("charge") == {"2": job(status="que")}
     assert sandbox.read("status")["Ncpu"] == 0
-    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert jobproc.wait(timeout=5) == -signal.SIGTERM
     assert "---MINOSSE STOPS---" in sandbox.messages()
 
 
