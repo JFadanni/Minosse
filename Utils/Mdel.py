@@ -3,9 +3,10 @@
 
 import os
 import pwd
-from   optparse   import OptionParser
+from   argparse   import ArgumentParser
 
 from    Mutil      import *
+from    Mutil      import __version__
 
 """ Minosse a Python-based batch system
 
@@ -28,8 +29,6 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
 ##------------------------------------------------------------------------------
@@ -44,22 +43,22 @@ mess=Mdir+'messages'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(description="Delete a job from the Minosse queue")
 
-parser.add_option("-j", "--job",
-                  action="store", dest="job", type="int", default=None,
-                  help="id number")
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("-j", "--job",
+                    action="store", dest="job", type=int, default=None,
+                    help="id number")
+parser.add_argument("-s", "--script",
+                    action="store", dest="script", default=None,
+                    help="script name")
+parser.add_argument("-a", "--all",
+                    action="store_true", dest="all", default=False,
+                    help="kill all processes from the top script to the last "
+                         "child (always done, kept for compatibility)")
 
-parser.add_option("-s", "--script",
-                  action="store", dest="script", type="string", default=None,
-                  help="script name")
-
-parser.add_option("-a", "--all",
-                  action="store_true", dest="all", default=False,
-                  help="kill all processes from the top script to the last "
-                       "child (always done, kept for compatibility)")
-
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 if options.job is None and options.script is None:
     parser.error("give the job to delete: -j id or -s path/scriptname")

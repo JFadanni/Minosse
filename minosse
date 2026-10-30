@@ -15,8 +15,6 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
-#
-#Minosse version 1.3.0, 12th Nov 2023
 #---------------------------------------------------------------------------------
 
 case "$1" in
@@ -68,8 +66,11 @@ for user, script in pendingjobs('$instdir/', '$instdir/charge'):
 			echo -e '\n no Minosse demon running\n'
 		fi
 	;;
+	version)
+		echo "Minosse $(cat $instdir/VERSION)"
+	;;
 	*)
-		echo -e "\nUsage: minosse start [--keep|--delete] / stop"
+		echo -e "\nUsage: minosse start [--keep|--delete] / stop / version"
 		echo -e '  start or stop the minosse queue demon'
 		echo -e '  --keep, --delete: keep or delete the jobs still waiting'
 		echo -e '  from the last run, without asking\n'

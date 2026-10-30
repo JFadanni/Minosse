@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import time
-import json
 from   subprocess import *
-from   optparse   import OptionParser
+from   argparse   import ArgumentParser
 
 from    Mutil      import *
+from    Mutil      import __version__
 
 """ Minosse a Python-based batch system
 
@@ -31,8 +30,6 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 
 ##------------------------------------------------------------------------------
@@ -62,13 +59,15 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog [--delete-pending]")
+parser = ArgumentParser(description="The Minosse demon (started by minosse start)")
 
-parser.add_option("--delete-pending",
-                  action="store_true", dest="delete", default=False,
-                  help="delete the jobs still waiting from the last run")
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("--delete-pending",
+                    action="store_true", dest="delete", default=False,
+                    help="delete the jobs still waiting from the last run")
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program

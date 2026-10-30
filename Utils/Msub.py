@@ -3,8 +3,9 @@
 import pwd
 import socket
 import time
-from   optparse   import OptionParser
+from   argparse   import ArgumentParser
 from    Mutil      import *
+from    Mutil      import __version__
 
 """ Minosse a Python-based batch system
 
@@ -27,8 +28,6 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = "Revision: 1.3.0"
 __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 ## Files names
@@ -61,29 +60,31 @@ HD = defaults['HDmemory']
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version=f"%prog {__version__}") # fix version
+parser = ArgumentParser(description="Submit a job to the Minosse queue")
 
-parser.add_option("-c", "--cpus",
-                  action="store", dest="cpus", default=cpus, type="int", 
-                  help=f"nomber of cpus required [default={cpus}]")
-parser.add_option("-m", "--memory",
-                  action="store", dest="memory", default=RAM, type="int",
-                  help=f"RAM memory requirement [default={RAM} MB]")
-#parser.add_option("-d", "--harddisck",
-#                  action="store", dest="HD", default="00", type="int",
-#                  help="HD scratch space required [default=00 GB]")
-parser.add_option("-p", "--priority",
-                  action="store", dest="priority", default=priority, type="int",
-                  help=f"set the priority of a job [default={priority}]")
-parser.add_option("-f", "--file",
-                  action="store", dest="file",
-                  help="set the name of the job script")
-parser.add_option("-l", "--link",
-                  action="store", dest="chain", default="none",
-                  help="run the job after the earlier job with this script "
-                       "ends [default=none]")
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("-c", "--cpus",
+                    action="store", dest="cpus", default=cpus, type=int,
+                    help=f"number of cpus required [default={cpus}]")
+parser.add_argument("-m", "--memory",
+                    action="store", dest="memory", default=RAM, type=int,
+                    help=f"RAM memory requirement [default={RAM} MB]")
+#parser.add_argument("-d", "--harddisck",
+#                    action="store", dest="HD", default=0, type=int,
+#                    help="HD scratch space required [default=0 GB]")
+parser.add_argument("-p", "--priority",
+                    action="store", dest="priority", default=priority, type=int,
+                    help=f"set the priority of a job [default={priority}]")
+parser.add_argument("-f", "--file",
+                    action="store", dest="file",
+                    help="set the name of the job script")
+parser.add_argument("-l", "--link",
+                    action="store", dest="chain", default="none",
+                    help="run the job after the earlier job with this script "
+                         "ends [default=none]")
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 if not options.file:
     parser.error("the job script is required: -f path/scriptname")

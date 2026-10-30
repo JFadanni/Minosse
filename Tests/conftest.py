@@ -96,6 +96,7 @@ class Sandbox:
             target = self.script(tool)
             target.write_text(text.replace("$instdir", str(self.dir)))
             os.chmod(target, 0o755)
+        shutil.copy(SRC / "VERSION", self.dir / "VERSION")
         hostname = os.uname().nodename
         arch = os.uname().machine
         self.write("charge", {})

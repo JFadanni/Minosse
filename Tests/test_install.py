@@ -113,7 +113,8 @@ def test_install_lays_out_the_files(installed, configured):
     for name in MNS:
         read_mns(instdir / f"{name}.mns")
     for name in ("Minosse.py", "Msub.py", "Mstat.py", "Mdel.py", "Mutil.py",
-                 "minosse", "minosse_uninst.sh", "README.md", "COPYING"):
+                 "minosse", "minosse_uninst.sh", "README.md", "COPYING",
+                 "VERSION"):
         assert (instdir / name).is_file(), name
     assert not (configured / "Tmp").exists()
 
@@ -140,6 +141,14 @@ def test_install_lays_out_the_files(installed, configured):
 def as_alice(*cmd):
     return subprocess.run(["runuser", "-u", "alice", "--", *map(str, cmd)],
                           capture_output=True, text=True)
+
+
+def test_minosse_version(installed, configured):
+    instdir, linkdir = installed
+    version = (configured / "VERSION").read_text().strip()
+    assert minosse(linkdir, "version").stdout.strip() == f"Minosse {version}"
+    result = run_script(configured, "minosse_config.sh", "/no/such/dir\n")
+    assert f"Minosse version {version}" in result.stdout
 
 
 def test_installed_commands_work_for_users(installed):

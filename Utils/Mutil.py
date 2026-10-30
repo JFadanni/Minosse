@@ -31,9 +31,21 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
+
+def readversion():
+    """The version of Minosse, from the VERSION file installed next to the
+    scripts (or at the top of the source tree)"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in (os.path.join(here,'VERSION'), os.path.join(here,os.pardir,'VERSION')):
+        try:
+            with open(path,encoding='utf-8') as filein:
+                return filein.read().strip()
+        except OSError:
+            pass
+    return 'unknown'
+
+__version__ = readversion()
 
 ##------------------------------------------------------------------------------
 ## write messages
