@@ -428,25 +428,36 @@ def submitjobs(Rdir,fileA,file2,file3,node,mess):
     writeallfile(file2,charge)
     writeallfile(file3,status)
              
+def demonpids(Mdir):
+    """The pids of the Minosse demons running from Mdir
+
+    Read from /proc: depending on the environment, ps cuts long command
+    lines."""
+    demon = f"{Mdir}Minosse.py".encode()
+    pids = []
+    for pid in os.listdir('/proc'):
+        if not pid.isdigit():
+            continue
+        try:
+            with open(f"/proc/{pid}/cmdline",'rb') as filein:
+                args = filein.read().split(b'\0')
+        except OSError: # it has just ended
+            continue
+        # a Python interpreter running the demon, not an editor opening it
+        if len(args) > 1 and b'python' in os.path.basename(args[0]) and args[1] == demon:
+            pids.append(int(pid))
+    return pids
+
 def ifrunning(Mdir):
     """check if minosse is running"""
-    ps=os.popen('ps -eo args | grep Minosse.py').readlines()
-    status='down'
-    a=[]
-    for line in ps:
-        args=line.split()
-        # not, for example, an editor opening Minosse.py
-        if (len(args) > 1 and 'python' in os.path.basename(args[0])
-                and args[1] == f"{Mdir}Minosse.py"):
-            status='ok'
-            a.append('ok')
-    if len(a) > 1 :
+    running = demonpids(Mdir)
+    if len(running) > 1 :
         print('')
         print ('-'*40)
         print ('more than one minosse demon running!')
         print ('-'*40,'\n')
         sys.exit(0)
-    if status == 'down':
+    if not running:
         print('')
         print ('-'*40)
         print ('no minosse demon running!')
