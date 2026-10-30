@@ -3,7 +3,6 @@
 
 import os
 import pwd
-import random
 from   optparse   import OptionParser
 
 from    Mutil      import *
@@ -70,8 +69,6 @@ if options.job is None and options.script is None:
 
 ifrunning(Mdir)
 
-RND=str(random.randint(1, 1000000))
-
 # job ids are the keys of charge.mns, which are strings
 job = None if options.job is None else str(options.job)
 # msub stores absolute paths
@@ -85,4 +82,4 @@ for vname, vval in zip(delkeys, delvalues):
    deljob[vname] = vval
 
 
-writeallfile(requestdir(Mdir)+file8+RND,{RND :deljob})
+writeallfile(requestdir(Mdir)+requestname(file8),deljob)

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import pwd
 import socket
-import random
 import time
 from   optparse   import OptionParser
 from    Mutil      import *
@@ -36,6 +35,7 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
+file1=Mdir+'nodes'
 file5='subjob'
 file4=Mdir+'defaults'
 mess=Mdir+'messages'
@@ -46,7 +46,7 @@ mess=Mdir+'messages'
 
 varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','chain'
-          ,'subtime','runtime','HDmemory','id']
+          ,'subtime','runtime','HDmemory']
 
 ##------------------------------------------------------------------------------
 ## Loads defaults
@@ -93,7 +93,6 @@ if not options.file:
 
 #ifrunning(Mdir)
 architecture= os.uname()[-1]
-id=str(random.randint(1, 1000000))
 # the demon does not run in the submission directory
 script = os.path.abspath(options.file)
 # not getpass.getuser(): it trusts $LOGNAME and $USER
@@ -101,12 +100,17 @@ user = pwd.getpwuid(os.getuid()).pw_name
 
 varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
          options.priority,'','',script,user,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
-         HD,id]
+         HD]
 
 job_prop = {}
 for vname, vval in zip(varnames, varvalues):
     job_prop[vname] = vval
 
-subjob = {id: job_prop}
+# the demon checks it again, but it is better to know it now
+error = invalidjob(job_prop,readallfile(file1))
+if error:
+    parser.error(f"the job can never run: {error}")
 
-writeallfile(requestdir(Mdir)+file5+id,subjob)
+# the demon gives the job its id
+writeallfile(requestdir(Mdir)+requestname(file5),job_prop)
+print(f"Job {script} submitted, see its id with mstat")

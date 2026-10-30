@@ -120,6 +120,6 @@ while 1:
     ## check the stop file wich control the minosse  demon
     checkdemon(file6,file2,file3,mess)
     ## write in the charge file the new submitted job
-    writejob(requestdir(Mdir),file5,file2,mess)
+    submitjobs(requestdir(Mdir),file5,file2,file3,realvalue,mess)
     ## waiting time
     time.sleep(1)

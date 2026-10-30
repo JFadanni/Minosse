@@ -203,12 +203,24 @@ def test_check_for_submissions_respects_priority_when_resources_are_short():
     assert schedule(available, queue) == ["high"]
 
 
-def test_check_for_submissions_backfills_smaller_jobs():
-    # A job that does not fit is skipped and lower-priority jobs that fit
-    # are started: small jobs can starve a big high-priority one.
+def test_check_for_submissions_does_not_let_small_jobs_overtake():
+    # Otherwise a stream of small jobs could starve the big one forever.
     queue = {"big": job(Ncpu=4, priority=90), "small": job(Ncpu=1, priority=10)}
     available = {"Ncpu": 3, "RAM": 1000, "HDmemory": 10}
-    assert schedule(available, queue) == ["small"]
+    assert schedule(available, queue) == []
+
+
+def test_check_for_submissions_starts_jobs_ahead_of_a_waiting_one():
+    queue = {"low": job(Ncpu=1, priority=10), "mid": job(Ncpu=4, priority=50),
+             "high": job(Ncpu=1, priority=90)}
+    available = {"Ncpu": 3, "RAM": 1000, "HDmemory": 10}
+    assert schedule(available, queue) == ["high"]
+
+
+def test_check_for_submissions_equal_priority_is_first_come_first_served():
+    queue = {"1": job(Ncpu=4), "2": job(Ncpu=1)}
+    available = {"Ncpu": 3, "RAM": 1000, "HDmemory": 10}
+    assert schedule(available, queue) == []
 
 
 def test_check_for_submissions_accounts_all_resources():
@@ -285,18 +297,19 @@ def test_cleanstatus_resets_the_node(sandbox, sleeper):
                              "2": job(status="que")})
     sandbox.request("subjob123", {})
     sandbox.request("remove456", {})
-    sandbox.request("unrelated", {})
-    status = {"status": "down", "Ncpu": 3, "RAM": 500, "HDmemory": 1}
+    status = {"status": "down", "Ncpu": 3, "RAM": 500, "HDmemory": 1,
+              "lastid": 41}
 
     # Called as Minosse.py does: the conf file is passed as statusf.
     status = Mutil.cleanstatus(status, sandbox.mdir, sandbox.base("charge"),
                                sandbox.base("conf"))
 
-    assert status == {"status": "up", "Ncpu": 0, "RAM": 0, "HDmemory": 0}
+    assert status == {"status": "up", "Ncpu": 0, "RAM": 0, "HDmemory": 0,
+                      "lastid": 41}
     assert sandbox.read("charge") == {}
     assert sandbox.read("conf") == {"status": "up"}
-    assert sandbox.pending("subjob") == sandbox.pending("remove") == []
-    assert (sandbox.requests / "unrelated.mns").exists()
+    # Requests sent while the daemon was down are handled once it runs.
+    assert len(sandbox.pending("subjob")) == len(sandbox.pending("remove")) == 1
     assert sleeper.wait(timeout=5) == -signal.SIGTERM
     assert "All jobs killed" in sandbox.messages()
     assert "status machine cleaned" in sandbox.messages()
@@ -329,87 +342,162 @@ def test_checkdemon_stops_on_request(sandbox, sleeper):
 
 
 # ---------------------------------------------------------------------------
-# incoming requests: writejob / checkdeletedjob
+# incoming requests: collectrequests / writejob / submitjobs / checkdeletedjob
 # ---------------------------------------------------------------------------
+
+def collect(box, prefix):
+    return Mutil.collectrequests(box.rdir, prefix, box.base("messages"))
+
 
 def writejob(box, prefix, target):
     Mutil.writejob(box.rdir, prefix, box.base(target), box.base("messages"))
 
 
-def test_writejob_collects_submissions(sandbox):
-    sandbox.request("subjob11", {"11": job(user=ME)})
-    sandbox.request("subjob22", {"22": job(user=ME, script="/jobs/b.sh")})
+def submitjobs(box):
+    Mutil.submitjobs(box.rdir, "subjob", box.base("charge"),
+                     box.base("status"), box.read("nodes"),
+                     box.base("messages"))
+
+
+def submission(**fields):
+    """A request as msub writes it."""
+    request = job(**fields)
+    for key in ("pid", "runtime"):
+        request[key] = ""
+    return request
+
+
+def test_requestname_is_unique_and_sorts_in_submission_order():
+    names = [Mutil.requestname("subjob") for _ in range(100)]
+    assert len(set(names)) == 100
+    assert sorted(names) == names
+    assert all(n.startswith("subjob") for n in names)
+
+
+def test_collectrequests_reads_and_removes_requests_in_order(sandbox):
+    sandbox.request("subjob2", {"script": "/b"})
+    sandbox.request("subjob1", {"script": "/a"})
+    sandbox.request("remove1", {"id": "1"})
     (sandbox.requests / "notes.txt").write_text("not a request")
-    writejob(sandbox, "subjob", "charge")
-    assert sandbox.read("charge") == {
-        "11": job(user=ME), "22": job(user=ME, script="/jobs/b.sh")}
+    assert list(collect(sandbox, "subjob").items()) == [
+        ("1", {"script": "/a", "user": ME}),
+        ("2", {"script": "/b", "user": ME})]
     assert sandbox.pending("subjob") == []
+    assert len(sandbox.pending("remove")) == 1
     assert (sandbox.requests / "notes.txt").exists()
 
 
-def test_writejob_keeps_tracked_jobs(sandbox):
-    sandbox.write("charge", {"11": job(user=ME, status="run", pid=99)})
-    sandbox.request("subjob22", {"22": job(user=ME)})
-    writejob(sandbox, "subjob", "charge")
-    assert sandbox.read("charge") == {
-        "11": job(user=ME, status="run", pid=99), "22": job(user=ME)}
-
-
-def test_writejob_collects_delete_requests(sandbox):
-    request = {"script": None, "id": "11", "all": False, "user": ME}
-    sandbox.request("remove77", {"77": request})
-    writejob(sandbox, "remove", "delete")
-    assert sandbox.read("delete") == {"77": request}
-    assert sandbox.pending("remove") == []
-
-
 @needs_server
-@pytest.mark.parametrize("prefix, target", [("subjob", "charge"),
-                                            ("remove", "delete")])
-def test_writejob_takes_the_user_from_the_file_owner(sandbox, prefix, target):
-    sandbox.request(f"{prefix}11", {"11": job(user="root")}, owner="alice")
-    writejob(sandbox, prefix, target)
-    assert sandbox.read(target)["11"]["user"] == "alice"
+def test_collectrequests_takes_the_user_from_the_file_owner(sandbox):
+    sandbox.request("remove1", {"id": "1", "user": "root"}, owner="alice")
+    assert collect(sandbox, "remove")["1"]["user"] == "alice"
 
 
-@pytest.mark.parametrize("content", [
-    "{not json", '{"12": {}}', "[]", '{"11": "a string"}'])
-def test_writejob_rejects_malformed_requests(sandbox, content):
+@pytest.mark.parametrize("content", ["{not json", "[]", '"a string"'])
+def test_collectrequests_rejects_malformed_requests(sandbox, content):
     (sandbox.requests / "subjob11.mns").write_text(content)
-    writejob(sandbox, "subjob", "charge")
-    assert sandbox.read("charge") == {}
+    assert collect(sandbox, "subjob") == {}
     assert sandbox.pending("subjob") == []
     assert "WARNING:request subjob11.mns rejected" in sandbox.messages()
 
 
-def test_writejob_rejects_links(sandbox):
+def test_collectrequests_rejects_links(sandbox):
     # A link to a file of another user would make the daemon read it.
     target = sandbox.dir / "victim.mns"
-    target.write_text('{"11": {"script": "/x"}}')
+    target.write_text('{"script": "/x"}')
     (sandbox.requests / "subjob11.mns").symlink_to(target)
-    writejob(sandbox, "subjob", "charge")
-    assert sandbox.read("charge") == {}
+    assert collect(sandbox, "subjob") == {}
     assert sandbox.pending("subjob") == []
     assert "rejected" in sandbox.messages()
 
 
-def test_writejob_does_not_block_on_fifos(sandbox):
+def test_collectrequests_does_not_block_on_fifos(sandbox):
     os.mkfifo(sandbox.requests / "subjob11.mns")
-    writejob(sandbox, "subjob", "charge")
-    assert sandbox.read("charge") == {}
+    assert collect(sandbox, "subjob") == {}
     assert "rejected" in sandbox.messages()
 
 
-@pytest.mark.xfail(reason="DESIGN: job ids are random in 1..1e6; on a "
-                          "collision the new submission is silently ignored "
-                          "and its file is left behind forever")
-def test_writejob_does_not_drop_colliding_submission(sandbox):
-    sandbox.write("charge", {"11": job(user=ME, status="run", pid=99)})
-    sandbox.request("subjob11", {"11": job(user=ME, script="/jobs/new.sh")})
-    writejob(sandbox, "subjob", "charge")
-    scripts = [j["script"] for j in sandbox.read("charge").values()]
-    assert "/jobs/new.sh" in scripts
+def test_writejob_collects_delete_requests(sandbox):
+    sandbox.write("delete", {"5": {"id": "1"}})
+    request = {"script": None, "id": "11", "all": False, "user": ME}
+    sandbox.request("remove77", request)
+    writejob(sandbox, "remove", "delete")
+    assert sandbox.read("delete") == {"5": {"id": "1"}, "77": request}
+    assert sandbox.pending("remove") == []
+
+
+def test_submitjobs_numbers_jobs_in_submission_order(sandbox):
+    sandbox.write("charge", {"7": job(status="run", pid=99)})
+    sandbox.request("subjob1", submission(script="/jobs/a.sh"))
+    sandbox.request("subjob2", submission(script="/jobs/b.sh"))
+    submitjobs(sandbox)
+    charge = sandbox.read("charge")
+    assert list(charge) == ["7", "1", "2"]
+    assert charge["1"] == {**submission(script="/jobs/a.sh"), "id": "1",
+                           "user": ME}
+    assert charge["2"]["script"] == "/jobs/b.sh"
+    assert sandbox.read("status")["lastid"] == 2
     assert sandbox.pending("subjob") == []
+    assert "Job 1 /jobs/a.sh queued" in sandbox.messages()
+
+
+def test_submitjobs_never_reuses_ids(sandbox):
+    # The counter survives restarts, so a stale mdel cannot hit a new job.
+    sandbox.write("status", {**sandbox.read("status"), "lastid": 41})
+    sandbox.request("subjob1", submission())
+    submitjobs(sandbox)
+    assert list(sandbox.read("charge")) == ["42"]
+
+
+def test_submitjobs_skips_ids_in_use(sandbox):
+    sandbox.write("charge", {"1": job(status="run", pid=99)})
+    sandbox.request("subjob1", submission(script="/jobs/new.sh"))
+    submitjobs(sandbox)
+    assert sandbox.read("charge")["2"]["script"] == "/jobs/new.sh"
+
+
+def test_submitjobs_accepts_simultaneous_submissions(sandbox):
+    for _ in range(20):
+        sandbox.request(Mutil.requestname("subjob"), submission())
+    submitjobs(sandbox)
+    assert list(sandbox.read("charge")) == [str(i) for i in range(1, 21)]
+
+
+def test_submitjobs_ignores_daemon_fields_in_requests(sandbox, sleeper):
+    # Otherwise a forged "running" job would make root kill any pid.
+    sandbox.request("subjob1", submission(status="run", pid=sleeper.pid,
+                                          runtime="now", id="99"))
+    submitjobs(sandbox)
+    entry = sandbox.read("charge")["1"]
+    assert (entry["status"], entry["pid"], entry["runtime"], entry["id"]) == (
+        "que", "", "", "1")
+
+
+@pytest.mark.parametrize("fields, error", [
+    ({"Ncpu": 5}, "Ncpu 5 exceeds the node (4)"),
+    ({"RAM": 1001}, "RAM 1001 exceeds the node (1000)"),
+    ({"HDmemory": 11}, "HDmemory 11 exceeds the node (10)"),
+    ({"Ncpu": 0}, "at least one cpu is needed"),
+    ({"RAM": -1}, "RAM must not be negative"),
+    ({"Ncpu": "2"}, "Ncpu must be an integer"),
+    ({"Ncpu": True}, "Ncpu must be an integer"),
+    ({"priority": None}, "priority must be an integer"),
+    ({"script": "job.sh"}, "the script must be an absolute path"),
+    ({"script": None}, "the script must be an absolute path"),
+])
+def test_submitjobs_rejects_jobs_that_can_never_run(sandbox, fields, error):
+    sandbox.request("subjob1", submission(**fields))
+    submitjobs(sandbox)
+    assert sandbox.read("charge") == {}
+    assert sandbox.pending("subjob") == []
+    assert error in sandbox.messages()
+
+
+def test_submitjobs_rejects_requests_without_fields(sandbox):
+    sandbox.request("subjob1", {})
+    submitjobs(sandbox)
+    assert sandbox.read("charge") == {}
+    assert "rejected: Ncpu must be an integer" in sandbox.messages()
 
 
 def checkdeletedjob(box):
@@ -421,8 +509,8 @@ def checkdeletedjob(box):
 
 def mdel_request(box, id=None, script=None):
     """Drop a request file as Mdel.py writes it."""
-    box.request("remove555", {"555": {"script": script, "id": id,
-                                      "all": False, "user": ME}})
+    box.request("remove555", {"script": script, "id": id, "all": False,
+                              "user": ME})
 
 
 def test_checkdeletedjob_without_requests_is_a_noop(sandbox):
@@ -471,6 +559,14 @@ def test_checkdeletedjob_refuses_other_users_jobs(sandbox):
     checkdeletedjob(sandbox)
     assert list(sandbox.read("charge")) == ["1"]
     assert f"WARNING:{ME} tried to delete job 1 of alice" in sandbox.messages()
+
+
+def test_checkdeletedjob_ignores_incomplete_requests(sandbox):
+    sandbox.write("charge", {"1": job(user=ME)})
+    sandbox.request("remove1", {})
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["1"]
+    assert sandbox.read("delete") == {}
 
 
 def test_checkdeletedjob_warns_about_unknown_jobs(sandbox):

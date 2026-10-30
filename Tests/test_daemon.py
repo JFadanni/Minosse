@@ -40,7 +40,6 @@ def picked_up(box):
 
 def test_daemon_initialises_the_node(sandbox):
     sandbox.write("status", {**sandbox.read("status"), "Ncpu": 3, "RAM": 50})
-    sandbox.request("subjob1", {})
     daemon = Daemon(sandbox)
     try:
         daemon.wait_for(lambda: sandbox.read("conf") == {"status": "up"},
@@ -50,7 +49,31 @@ def test_daemon_initialises_the_node(sandbox):
     assert "---MINOSSE START---" in sandbox.messages()
     status = sandbox.read("status")
     assert (status["Ncpu"], status["RAM"], status["HDmemory"]) == (0, 0, 0)
-    assert sandbox.pending("subjob") == []
+
+
+def test_jobs_submitted_while_the_daemon_is_down_run_after_start(sandbox):
+    msub(sandbox, sandbox.job_script("a"))
+    daemon = Daemon(sandbox)
+    try:
+        daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
+    finally:
+        daemon.stop()
+
+
+def test_job_ids_are_not_reused_after_a_restart(sandbox):
+    for name, expected in (("a", "1"), ("b", "2")):
+        # One script per run: the first run's job is still in charge.mns
+        # until the second daemon cleans it up.
+        script = sandbox.job_script(name, 30)
+        daemon = Daemon(sandbox)
+        try:
+            msub(sandbox, script)
+            jobid, _ = daemon.wait_for(lambda: sandbox.find_job(script),
+                                       "the job to be queued")
+            assert jobid == expected
+        finally:
+            daemon.stop()
+            sandbox.kill_everything()
 
 
 def test_daemon_stays_up_when_idle(sandbox, daemon):
@@ -127,6 +150,28 @@ def test_higher_priority_job_starts_first(sandbox, daemon):
                     sandbox.started_by("low"), "a queued job to start")
     assert sandbox.started_by("high")
     assert sandbox.started_by("low") is None
+
+
+def test_small_jobs_do_not_starve_a_big_one(sandbox, daemon):
+    msub(sandbox, sandbox.job_script("blocker", 2), "-c", 2)
+    daemon.wait_for(lambda: sandbox.started_by("blocker"), "blocker to start")
+    msub(sandbox, sandbox.job_script("big", 0), "-c", 4, "-p", 90)
+    msub(sandbox, sandbox.job_script("small", 0), "-c", 1, "-p", 10)
+    time.sleep(1)
+    # Two CPUs are free, but the small job must not overtake the big one.
+    assert sandbox.started_by("small") is None
+    daemon.wait_for(lambda: sandbox.started_by("small"), "small to start")
+    assert sandbox.started_by("big")
+
+
+def test_impossible_jobs_are_rejected(sandbox, daemon):
+    # Written by hand, bypassing the checks of msub.
+    sandbox.request("subjob1", {"script": "/bin/true", "Ncpu": 99, "RAM": 1,
+                                "HDmemory": 0, "priority": 50})
+    daemon.wait_for(lambda: "rejected" in sandbox.messages(),
+                    "the request to be rejected")
+    assert sandbox.read("charge") == {}
+    assert "Ncpu 99 exceeds the node (4)" in sandbox.messages()
 
 
 # ---------------------------------------------------------------------------
@@ -226,10 +271,10 @@ def test_user_cannot_impersonate_root_via_environment(sandbox, daemon):
 
 def test_user_cannot_forge_a_root_submission(sandbox, daemon):
     script = sandbox.job_script("a")
-    sandbox.request("subjob999", {"999": {
+    sandbox.request("subjob999", {
         "user": "root", "script": str(script), "status": "que",
         "priority": 50, "Ncpu": 1, "RAM": 100, "HDmemory": 0, "pid": "",
-        "runtime": "", "subtime": "", "chain": "none"}}, owner="alice")
+        "runtime": "", "subtime": "", "chain": "none"}, owner="alice")
     assert_not_run_as_root(sandbox, daemon, "a")
     assert sandbox.started_by("a") == "alice"
 

@@ -151,7 +151,10 @@ def find_available_resources(status,realvalue): # New function
 
 def check_for_submissions(available,priority_list,queue): # New function
     # It replaces the test... functions
-    """Check for the jobs to be submitted """
+    """Check for the jobs to be submitted
+
+    Jobs start in priority order: a job that does not fit yet blocks the
+    ones after it, otherwise a stream of small jobs could starve a big one."""
     free_cpu = available['Ncpu']
     free_ram = available['RAM']
     free_hd = available['HDmemory']
@@ -164,6 +167,8 @@ def check_for_submissions(available,priority_list,queue): # New function
             free_cpu -= job['Ncpu']
             free_ram -= job['RAM']
             free_hd -= job['HDmemory']
+        else:
+            break
     return to_be_submitted
 
 def isrunning(pid):
@@ -205,18 +210,15 @@ def update_status(status,job,val): # New function
     status['RAM'] = status['RAM'] + job['RAM'] * val
     status['HDmemory'] = status['HDmemory'] + job['HDmemory'] * val
 
-def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",messf="messages"): # New function
-    """Clean up the machine status at startup"""
-    # clean the status file
+def cleanstatus(status,Mdir,chargef,statusf,messf="messages"): # New function
+    """Clean up the machine status at startup
+
+    Pending requests are kept: they are handled once the demon runs."""
+    # clean the status file, keeping the job counter
     status["status"] = "up"
     status["RAM"] = 0
     status["Ncpu"] = 0
     status["HDmemory"] = 0
-    # clean the pending requests
-    Rdir=requestdir(Mdir)
-    for f in os.listdir(Rdir):
-        if f.startswith(remove) or f.startswith(subjob):
-            os.remove(Rdir+f)
     # kill running jobs
     charge = readallfile(chargef)
     for jobid in charge:
@@ -258,11 +260,11 @@ def checkdeletedjob(file7,file2,file3,mess): # Updated function
     for delid in inp:
         delinst = inp[delid]
         duser = delinst['user']
-        if delinst['id']:
+        if delinst.get('id'):
             targets = [str(delinst['id'])]
         else:
             targets = [jobid for jobid in alljobs
-                       if alljobs[jobid]['script'] == delinst['script']]
+                       if alljobs[jobid]['script'] == delinst.get('script')]
         for jobid in targets:
             job = alljobs.get(jobid)
             if job is None:
@@ -296,24 +298,73 @@ def readrequest(filename):
         content = json.load(filein)
     return pwd.getpwuid(info.st_uid).pw_name, content
 
-def writejob(Mdir,fileA,fileB,mess):
-    """check the new requests (submitted or deleted jobs)"""
-    tracked_jobs = readallfile(fileB)
-    for f in os.listdir(Mdir):
-        if f.startswith(fileA) and f.endswith('.mns'):
-            jobid = f[len(fileA):-len('.mns')]
-            if jobid in tracked_jobs:
-                continue
+def requestname(prefix):
+    """A unique name for a request file, sorting in submission order"""
+    return f"{prefix}{time.time_ns()}_{os.getpid()}"
+
+def collectrequests(Rdir,prefix,mess):
+    """Read and remove the requests in Rdir, in submission order
+
+    Returns {name: request}; the user of a request is the owner of its file."""
+    requests = {}
+    for f in sorted(os.listdir(Rdir)):
+        if f.startswith(prefix) and f.endswith('.mns'):
             try:
-                user, request = readrequest(Mdir + f)
-                job = request[jobid]
-                job['user'] = user
-            except (OSError, ValueError, KeyError, TypeError) as error:
+                user, request = readrequest(Rdir + f)
+                request['user'] = user
+            except (OSError, ValueError, TypeError) as error:
                 writewarning(f"request {f} rejected: {error}",mess)
             else:
-                tracked_jobs[jobid] = job
-            os.remove(Mdir + f)
-    writeallfile(fileB, tracked_jobs)
+                requests[f[len(prefix):-len('.mns')]] = request
+            os.remove(Rdir + f)
+    return requests
+
+def writejob(Rdir,fileA,fileB,mess):
+    """add the new requests to the tracked ones"""
+    tracked = readallfile(fileB)
+    tracked.update(collectrequests(Rdir,fileA,mess))
+    writeallfile(fileB, tracked)
+
+def invalidjob(job,node):
+    """Why a submitted job can never run on the node, or None"""
+    for key in ('Ncpu','RAM','HDmemory','priority'):
+        value = job.get(key)
+        if not isinstance(value,int) or isinstance(value,bool):
+            return f"{key} must be an integer"
+    if job['Ncpu'] < 1:
+        return "at least one cpu is needed"
+    for key in ('RAM','HDmemory'):
+        if job[key] < 0:
+            return f"{key} must not be negative"
+    for key in ('Ncpu','RAM','HDmemory'):
+        if job[key] > node[key]:
+            return f"{key} {job[key]} exceeds the node ({node[key]})"
+    script = job.get('script')
+    if not isinstance(script,str) or not script.startswith('/'):
+        return "the script must be an absolute path"
+    return None
+
+def submitjobs(Rdir,fileA,file2,file3,node,mess):
+    """queue the new submitted jobs, giving them increasing ids
+
+    The last id is kept in the status file, so ids are never reused."""
+    charge = readallfile(file2)
+    status = readallfile(file3)
+    for job in collectrequests(Rdir,fileA,mess).values():
+        error = invalidjob(job,node)
+        if error:
+            writewarning(f"job {job.get('script')} of {job['user']} rejected: {error}",mess)
+            continue
+        status['lastid'] = status.get('lastid',0) + 1
+        while str(status['lastid']) in charge:
+            status['lastid'] += 1
+        jobid = str(status['lastid'])
+        # only the demon decides these
+        job.update(id=jobid, status='que', pid='', runtime='')
+        charge[jobid] = job
+        writemessage(f"Job {jobid} {job['script']} queued",mess)
+    writeallfile(file2,charge)
+    writeallfile(file3,status)
              
 def getpid(pid,opt):
     """extract the pid of all child processes"""

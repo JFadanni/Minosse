@@ -14,23 +14,20 @@ from conftest import job
 ME = pwd.getpwuid(os.getuid()).pw_name
 
 
-def submitted(box):
-    """The single subjob file written by msub, as (id, job)."""
-    files = box.pending("subjob")
+def request(box, prefix):
+    """The single request file written by msub or mdel."""
+    files = box.pending(prefix)
     assert len(files) == 1, files
-    data = json.loads(files[0].read_text())
-    assert len(data) == 1
-    jobid, entry = next(iter(data.items()))
-    assert files[0].name == f"subjob{jobid}.mns"
-    return jobid, entry
+    assert re.fullmatch(rf"{prefix}\d+_\d+\.mns", files[0].name)
+    return json.loads(files[0].read_text())
+
+
+def submitted(box):
+    return request(box, "subjob")
 
 
 def delete_request(box):
-    files = box.pending("remove")
-    assert len(files) == 1, files
-    data = json.loads(files[0].read_text())
-    assert len(data) == 1
-    return next(iter(data.values()))
+    return request(box, "remove")
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +38,8 @@ def test_msub_writes_a_submission(sandbox):
     result = sandbox.run("Msub", "-f", "/jobs/a.sh", "-c", 2, "-m", 300,
                          "-p", 70)
     assert result.returncode == 0, result.stderr
-    _, entry = submitted(sandbox)
+    assert "Job /jobs/a.sh submitted" in result.stdout
+    entry = submitted(sandbox)
     assert entry["script"] == "/jobs/a.sh"
     assert entry["Ncpu"] == 2
     assert entry["RAM"] == 300
@@ -54,7 +52,7 @@ def test_msub_writes_a_submission(sandbox):
 
 def test_msub_applies_defaults(sandbox):
     sandbox.run("Msub", "-f", "/jobs/a.sh")
-    _, entry = submitted(sandbox)
+    entry = submitted(sandbox)
     defaults = sandbox.read("defaults")
     assert entry["Ncpu"] == defaults["Ncpu"]
     assert entry["RAM"] == defaults["RAM"]
@@ -69,22 +67,23 @@ def test_msub_rejects_non_integer_resources(sandbox):
 
 @pytest.mark.parametrize("field", [
     "Ncpu", "RAM", "priority", "status", "script", "user", "subtime",
-    "runtime", "pid", "HDmemory", "id",
+    "runtime", "pid", "HDmemory",
 ])
 def test_msub_sets_fields_read_by_the_daemon(sandbox, field):
     sandbox.run("Msub", "-f", "/jobs/a.sh")
-    _, entry = submitted(sandbox)
+    entry = submitted(sandbox)
     assert field in entry
 
 
 def test_msub_job_can_be_scheduled(sandbox):
     sandbox.run("Msub", "-f", "/jobs/a.sh", "-c", 1, "-m", 100)
-    jobid, entry = submitted(sandbox)
-    queue = {jobid: entry}
+    entry = submitted(sandbox)
+    assert Mutil.invalidjob(entry, sandbox.read("nodes")) is None
+    queue = {"1": entry}
     available = Mutil.find_available_resources(sandbox.read("status"),
                                                sandbox.read("nodes"))
     assert Mutil.check_for_submissions(
-        available, Mutil.sortbypriority(queue), queue) == [jobid]
+        available, Mutil.sortbypriority(queue), queue) == ["1"]
 
 
 def test_msub_requires_a_script(sandbox):
@@ -95,22 +94,28 @@ def test_msub_requires_a_script(sandbox):
 
 def test_msub_stores_absolute_script_path(sandbox):
     sandbox.run("Msub", "-f", "job.sh")
-    _, entry = submitted(sandbox)
+    entry = submitted(sandbox)
     assert entry["script"] == os.path.abspath("job.sh")
 
 
 def test_msub_ignores_user_environment(sandbox):
     env = {**os.environ, "LOGNAME": "someoneelse", "USER": "someoneelse"}
     sandbox.run("Msub", "-f", "/jobs/a.sh", env=env)
-    _, entry = submitted(sandbox)
+    entry = submitted(sandbox)
     assert entry["user"] == ME
 
 
-@pytest.mark.xfail(reason="DESIGN: a request larger than the node is "
-                          "accepted and stays queued forever")
-def test_msub_rejects_requests_larger_than_the_node(sandbox):
-    result = sandbox.run("Msub", "-f", "/jobs/a.sh", "-c", 99)
+@pytest.mark.parametrize("args, error", [
+    (["-c", 99], "Ncpu 99 exceeds the node (4)"),
+    (["-m", 5000], "RAM 5000 exceeds the node (1000)"),
+    (["-c", 0], "at least one cpu is needed"),
+    (["-m", -5], "RAM must not be negative"),
+])
+def test_msub_rejects_jobs_that_can_never_run(sandbox, args, error):
+    result = sandbox.run("Msub", "-f", "/jobs/a.sh", *args)
     assert result.returncode != 0
+    assert error in result.stderr
+    assert "Traceback" not in result.stderr
     assert sandbox.pending("subjob") == []
 
 
@@ -151,11 +156,11 @@ def test_mstat_verbose_shows_details(sandbox):
 
 def test_mstat_verbose_with_a_submitted_job(sandbox):
     sandbox.run("Msub", "-f", "/jobs/a.sh")
-    jobid, entry = submitted(sandbox)
-    sandbox.write("charge", {jobid: entry})
+    entry = submitted(sandbox)
+    sandbox.write("charge", {"1": {**entry, "id": "1"}})
     result = sandbox.run("Mstat", "-v")
     assert result.returncode == 0, result.stderr
-    assert f"{jobid}:" in result.stdout
+    assert "1:" in result.stdout
 
 
 # ---------------------------------------------------------------------------

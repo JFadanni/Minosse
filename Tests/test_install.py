@@ -140,7 +140,7 @@ def test_installed_commands_work_for_users(installed):
     result = as_alice(f"{linkdir}/msub", "-f", "/bin/true")
     assert result.returncode == 0, result.stderr
     [request] = (instdir / "requests").glob("subjob*.mns")
-    [entry] = read_mns(request).values()
+    entry = read_mns(request)
     assert entry["user"] == "alice"
 
 
