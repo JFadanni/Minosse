@@ -86,10 +86,9 @@ while 1:
     ## read files
     status=readallfile(file3)
     charge=readallfile(file2)
-#    charge=chainjob(charge)
     ## test free slots for the requests
     available_resources = find_available_resources(status,realvalue)
-    queue = find_queued_jobs(charge)
+    queue = holdchained(find_queued_jobs(charge),charge)
     if available_resources['free_space'] and queue:
         priority_list = sortbypriority(queue)
         jobs_to_submit = check_for_submissions(available_resources,priority_list,queue)

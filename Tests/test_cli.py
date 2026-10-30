@@ -98,6 +98,14 @@ def test_msub_stores_absolute_script_path(sandbox):
     assert entry["script"] == os.path.abspath("job.sh")
 
 
+@pytest.mark.parametrize("chain, stored", [
+    ("none", "none"), ("/jobs/a.sh", "/jobs/a.sh"),
+    ("a.sh", os.path.abspath("a.sh"))])
+def test_msub_stores_the_chained_script(sandbox, chain, stored):
+    sandbox.run("Msub", "-f", "/jobs/b.sh", "-l", chain)
+    assert submitted(sandbox)["chain"] == stored
+
+
 def test_msub_ignores_user_environment(sandbox):
     env = {**os.environ, "LOGNAME": "someoneelse", "USER": "someoneelse"}
     sandbox.run("Msub", "-f", "/jobs/a.sh", env=env)

@@ -16,7 +16,7 @@ picked up without rebuilding the image.
 `container/Containerfile` describes a single Debian 12 workstation, the
 setup Minosse targets:
 
-- Python 3.11, `ps`/`pstree` (procps, psmisc) and `runuser` (util-linux);
+- Python 3.11, `ps` (procps) and `runuser` (util-linux);
 - the daemon runs as root, and the users `alice` and `bob` submit jobs;
 - `/scratch` is a 2 GB tmpfs work partition for `minosse_config.sh`;
 - `--init` gives the container an init that reaps orphans, as on a real

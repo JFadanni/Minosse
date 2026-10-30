@@ -200,6 +200,18 @@ def test_higher_priority_job_starts_first(sandbox, daemon):
     assert sandbox.started_by("low") is None
 
 
+def test_chained_job_waits_for_the_earlier_one(sandbox, daemon):
+    first = sandbox.job_script("first", 2)
+    msub(sandbox, first, "-c", 1)
+    daemon.wait_for(lambda: sandbox.started_by("first"), "first to start")
+    msub(sandbox, sandbox.job_script("second"), "-c", 1, "-l", first)
+    time.sleep(1)
+    # Three CPUs are free, but the chained job waits.
+    assert sandbox.started_by("second") is None
+    daemon.wait_for(lambda: sandbox.started_by("second"), "second to start")
+    assert sandbox.done("first")
+
+
 def test_small_jobs_do_not_starve_a_big_one(sandbox, daemon):
     msub(sandbox, sandbox.job_script("blocker", 2), "-c", 2)
     daemon.wait_for(lambda: sandbox.started_by("blocker"), "blocker to start")

@@ -80,7 +80,8 @@ parser.add_option("-f", "--file",
                   help="set the name of the job script")
 parser.add_option("-l", "--link",
                   action="store", dest="chain", default="none",
-                  help="set the name of the chained job [default=none]")
+                  help="run the job after the earlier job with this script "
+                       "ends [default=none]")
 
 (options, args) = parser.parse_args()
 
@@ -95,11 +96,12 @@ if not options.file:
 architecture= os.uname()[-1]
 # the demon does not run in the submission directory
 script = os.path.abspath(options.file)
+chain = options.chain if options.chain == 'none' else os.path.abspath(options.chain)
 # not getpass.getuser(): it trusts $LOGNAME and $USER
 user = pwd.getpwuid(os.getuid()).pw_name
 
 varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
-         options.priority,'','',script,user,options.chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
+         options.priority,'','',script,user,chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
          HD]
 
 job_prop = {}

@@ -160,6 +160,30 @@ def test_find_queued_jobs():
     assert Mutil.find_queued_jobs({}) == {}
 
 
+def test_holdchained_holds_jobs_chained_to_earlier_jobs():
+    charge = {"1": job(script="/jobs/a.sh", status="run"),
+              "2": job(script="/jobs/b.sh", chain="/jobs/a.sh"),
+              "3": job(script="/jobs/c.sh", chain="none"),
+              "4": job(script="/jobs/d.sh", chain="/jobs/gone.sh")}
+    queue = Mutil.find_queued_jobs(charge)
+    assert list(Mutil.holdchained(queue, charge)) == ["3", "4"]
+
+
+def test_holdchained_ignores_later_jobs():
+    # A later job with the same script does not hold an earlier one, so a
+    # job chained to its own script, or two chained jobs, cannot deadlock.
+    charge = {"1": job(script="/jobs/a.sh", chain="/jobs/b.sh"),
+              "2": job(script="/jobs/b.sh", chain="/jobs/a.sh"),
+              "3": job(script="/jobs/c.sh", chain="/jobs/c.sh")}
+    queue = Mutil.find_queued_jobs(charge)
+    assert list(Mutil.holdchained(queue, charge)) == ["1", "3"]
+
+
+def test_holdchained_without_chain_field():
+    charge = {"1": {k: v for k, v in job().items() if k != "chain"}}
+    assert list(Mutil.holdchained(charge, charge)) == ["1"]
+
+
 def test_sortbypriority_highest_first():
     jobs = {"a": job(priority=3), "b": job(priority=-1), "c": job(priority=7)}
     assert Mutil.sortbypriority(jobs) == [["c", 7], ["a", 3], ["b", -1]]
@@ -708,23 +732,3 @@ def test_ifrunning_with_two_daemons_exits(tmp_path, capsys):
         for proc in procs:
             proc.kill()
             proc.wait()
-
-
-@pytest.mark.skipif(not os.path.exists("/usr/bin/pstree"),
-                    reason="pstree (psmisc) not installed")
-def test_getpid_lists_process_tree():
-    proc = subprocess.Popen(["bash", "-c", "sleep 60 & sleep 60; wait"])
-    try:
-        def children():
-            out = subprocess.run(["ps", "--ppid", str(proc.pid), "-o", "pid="],
-                                 capture_output=True, text=True).stdout
-            pids = out.split()
-            return pids if len(pids) == 2 else None
-        kids = wait_until(children)
-        assert kids
-        assert set(Mutil.getpid(proc.pid, "all")) == {str(proc.pid), *kids}
-        assert set(Mutil.getpid(proc.pid, "leaves")) == set(kids)
-    finally:
-        subprocess.run(["pkill", "-P", str(proc.pid)])
-        proc.kill()
-        proc.wait()

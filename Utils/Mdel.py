@@ -56,7 +56,8 @@ parser.add_option("-s", "--script",
 
 parser.add_option("-a", "--all",
                   action="store_true", dest="all", default=False,
-                  help="kill all processes from the top script to the last child")
+                  help="kill all processes from the top script to the last "
+                       "child (always done, kept for compatibility)")
 
 (options, args) = parser.parse_args()
 

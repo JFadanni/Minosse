@@ -125,6 +125,19 @@ def find_queued_jobs(charge): # New function
             que_jobs[jobid] = job
     return que_jobs
 
+def holdchained(queue,charge):
+    """Leave out of the queue the jobs chained to an earlier job (msub -l):
+    they wait while a job with that script is queued or running"""
+    order = list(charge)
+    ready = {}
+    for jobid in queue:
+        chain = queue[jobid].get('chain','none')
+        earlier = order[:order.index(jobid)]
+        if chain != 'none' and any(charge[other]['script'] == chain for other in earlier):
+            continue
+        ready[jobid] = queue[jobid]
+    return ready
+
 def sortbypriority(jobs): # New function
     """ Sort the jobs by priority """
     id_prior = []
@@ -413,32 +426,6 @@ def submitjobs(Rdir,fileA,file2,file3,node,mess):
     writeallfile(file2,charge)
     writeallfile(file3,status)
              
-def getpid(pid,opt):
-    """extract the pid of all child processes"""
-    pppp,ppp,pall=[],[],[]
-    ps=os.popen('pstree -lp '+str(pid)).readlines()
-    for line in ps:
-        a,b,pp=[],[],[]
-        for j in range(len(line)):
-            if '(' == line[j]:
-                a.append(j)
-            if ')' == line[j]:
-                b.append(j)
-        for j in range(len(a)):
-            p=''
-            for k in range(a[j]+1,b[j]):
-                p=p+str((line[k]))
-            pp.append(p)
-            pall.append(p)
-        ppp.append(pp)
-    for i in range(len(ppp)):
-        pppp.append(ppp[i][len(ppp[i])-1])
-    if opt == 'all':
-        get=pall
-    else:
-        get=pppp
-    return get
-
 def ifrunning(Mdir):
     """check if minosse is running"""
     ps=os.popen('ps -eo args | grep Minosse.py').readlines()
@@ -463,14 +450,3 @@ def ifrunning(Mdir):
         print ('-'*40,'\n')
         sys.exit(0)     
     return
-
-def chainjob(charge):
-    """check if the jobs are chained"""
-    script=findall(charge,'script')
-    chain=findall(charge,'chain')
-    for i in range(len(chain)):
-        if chain[i] != 'none':
-            for j in range(len(script)):
-                if chain[i] == script[j]:
-                    charge=delete(charge,i,varnames)
-    return charge
