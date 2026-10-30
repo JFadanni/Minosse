@@ -62,6 +62,11 @@ During the installation, the script asks you in which directory you want to crea
  
    ```minosse start/stop```
 
+   Stopping kills the running jobs but keeps the queued ones. If jobs are
+   still waiting from the last run (queued, or submitted while the demon was
+   down), `minosse start` lists them and asks whether to keep them; use
+   `minosse start --keep` or `minosse start --delete` to skip the question.
+
 - Uninstall (only root can do it):
 
   ```minosse_uninst```

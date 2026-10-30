@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from conftest import Daemon, needs_server, process_alive, wait_until
+from conftest import Daemon, job, needs_server, process_alive, wait_until
 
 pytestmark = needs_server
 
@@ -56,6 +56,52 @@ def test_jobs_submitted_while_the_daemon_is_down_run_after_start(sandbox):
     daemon = Daemon(sandbox)
     try:
         daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
+    finally:
+        daemon.stop()
+
+
+def stop(box, daemon):
+    """What "minosse stop" does."""
+    subprocess.run(["sed", "-i", "s/up/stop/", box.path("conf")], check=True)
+    assert wait_until(lambda: not daemon.alive(), timeout=10)
+
+
+def test_queued_jobs_are_kept_across_a_restart(sandbox):
+    daemon = Daemon(sandbox)
+    try:
+        msub(sandbox, sandbox.job_script("blocker", 30), "-c", 4)
+        daemon.wait_for(lambda: sandbox.started_by("blocker"),
+                        "blocker to start")
+        script = sandbox.job_script("waiting")
+        msub(sandbox, script, "-c", 4)
+        jobid, _ = daemon.wait_for(lambda: sandbox.find_job(script),
+                                   "the waiting job to be queued")
+        stop(sandbox, daemon)
+    finally:
+        daemon.stop()
+    assert wait_until(lambda: not process_alive(sandbox.job_pid("blocker")))
+    assert list(sandbox.read("charge")) == [jobid]
+
+    daemon = Daemon(sandbox)
+    try:
+        daemon.wait_for(lambda: sandbox.started_by("waiting"),
+                        "the kept job to start")
+    finally:
+        daemon.stop()
+    assert "1 pending jobs kept" in sandbox.messages()
+
+
+def test_pending_jobs_can_be_deleted_at_start(sandbox):
+    sandbox.write("charge", {"7": {**job(user="alice"), "id": "7"}})
+    msub(sandbox, sandbox.job_script("a"))
+    daemon = Daemon(sandbox, "--delete-pending")
+    try:
+        daemon.wait_for(lambda: "Pending jobs deleted" in sandbox.messages(),
+                        "the pending jobs to be deleted")
+        time.sleep(1)
+        assert sandbox.read("charge") == {}
+        assert sandbox.pending("subjob") == []
+        assert sandbox.started_by("a") is None
     finally:
         daemon.stop()
 

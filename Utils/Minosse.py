@@ -6,6 +6,7 @@ import sys
 import time
 import json
 from   subprocess import *
+from   optparse   import OptionParser
 
 from    Mutil      import *
 
@@ -57,8 +58,17 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','id','chain'
           ,'subtime','runtime']
 
+##------------------------------------------------------------------------------
+## Flags
+##------------------------------------------------------------------------------
 
+parser = OptionParser(usage="%prog [--delete-pending]")
 
+parser.add_option("--delete-pending",
+                  action="store_true", dest="delete", default=False,
+                  help="delete the jobs still waiting from the last run")
+
+(options, args) = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -67,7 +77,7 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 ifrunning(Mdir)
 writeinitializationmessage(mess)
 status=readallfile(file3)
-status=cleanstatus(status,Mdir,file2,file6)
+status=cleanstatus(status,Mdir,file2,file6,keep=not options.delete)
 writeallfile(file3,status)
 realvalue=readallfile(file1)
 defaults=readallfile(file4)

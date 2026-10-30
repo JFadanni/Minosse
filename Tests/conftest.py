@@ -228,12 +228,12 @@ def fake_daemon(sandbox):
 class Daemon:
     """The real Minosse.py daemon running on a sandbox."""
 
-    def __init__(self, box):
+    def __init__(self, box, *args):
         self.box = box
         self.log = box.dir / "daemon.log"
         with open(self.log, "w") as log:
             self.proc = subprocess.Popen(
-                [sys.executable, str(box.script("Minosse"))],
+                [sys.executable, str(box.script("Minosse")), *args],
                 cwd=box.dir, stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True)
 

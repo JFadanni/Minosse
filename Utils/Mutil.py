@@ -210,10 +210,12 @@ def update_status(status,job,val): # New function
     status['RAM'] = status['RAM'] + job['RAM'] * val
     status['HDmemory'] = status['HDmemory'] + job['HDmemory'] * val
 
-def cleanstatus(status,Mdir,chargef,statusf,messf="messages"): # New function
-    """Clean up the machine status at startup
+def cleanstatus(status,Mdir,chargef,statusf,remove="remove",subjob="subjob",messf="messages",keep=True): # New function
+    """Clean up the machine status at startup and stop
 
-    Pending requests are kept: they are handled once the demon runs."""
+    Running jobs are killed.  The pending jobs, queued or submitted while
+    the demon was down, are kept for the next run unless keep is False."""
+    mess = f"{Mdir}/{messf}"
     # clean the status file, keeping the job counter
     status["status"] = "up"
     status["RAM"] = 0
@@ -221,21 +223,46 @@ def cleanstatus(status,Mdir,chargef,statusf,messf="messages"): # New function
     status["HDmemory"] = 0
     # kill running jobs
     charge = readallfile(chargef)
-    for jobid in charge:
+    for jobid in list(charge):
         job = charge[jobid]
         if job['status'] == 'run':
-            pid = job['pid']
             try:
-                os.kill(int(pid),SIGTERM)
-            except:
+                os.kill(int(job['pid']),SIGTERM)
+            except (OSError, ValueError):
                 pass
-    writemessage('All jobs killed',mess=f"{Mdir}/{messf}")
-    writeallfile(chargef,{})
+            delete(jobid,charge)
+        elif not keep:
+            delete(jobid,charge)
+    writeallfile(chargef,charge)
+    writemessage('All running jobs killed',mess)
+    if keep:
+        writemessage(f"{len(pendingjobs(Mdir,chargef,subjob))} pending jobs kept",mess)
+    else:
+        Rdir = requestdir(Mdir)
+        for f in os.listdir(Rdir):
+            if f.startswith(remove) or f.startswith(subjob):
+                os.remove(Rdir+f)
+        writemessage('Pending jobs deleted',mess)
     start = readallfile(statusf)
     start["status"] = "up"
     writeallfile(statusf,start)
     writemessage('status machine cleaned',mess=f"{Mdir}/{messf}")
     return status
+
+def pendingjobs(Mdir,chargef,subjob="subjob"):
+    """The jobs waiting to run, as (user, script): the queued ones and the
+    submissions not read yet"""
+    pending = [(job['user'],job['script']) for job in readallfile(chargef).values()
+               if job['status'] == 'que']
+    Rdir = requestdir(Mdir)
+    for f in sorted(os.listdir(Rdir)):
+        if f.startswith(subjob) and f.endswith('.mns'):
+            try:
+                user, job = readrequest(Rdir+f)
+                pending.append((user,job.get('script')))
+            except (OSError, ValueError, AttributeError): # rejected later
+                pass
+    return pending
 
 def checkdemon(file6,file2,file3,mess): # Updated function
     """Check if the demon must run or stop"""

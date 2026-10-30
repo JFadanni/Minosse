@@ -158,30 +158,74 @@ def test_users_cannot_plant_code_or_replace_files(installed):
     assert request.exists()
 
 
-def test_minosse_start_and_stop(installed):
-    instdir, linkdir = installed
-    result = subprocess.run([f"{linkdir}/minosse", "start"],
-                            capture_output=True, text=True, timeout=30)
-    assert "Minosse demon started" in result.stdout
-    time.sleep(2)
-    assert subprocess.run(["pgrep", "-f", f"{instdir}/Minosse.py"],
-                          capture_output=True).returncode == 0, \
-        "daemon is not running"
-
+def user_job(instdir):
+    """A job script that records who ran it, and its marker file."""
     job = instdir.parent / "job.sh"
     marker = instdir.parent / "job.out"
     job.write_text(f"#!/bin/bash\nid -un > {marker}\n")
     os.chmod(job, 0o755)
     os.chmod(instdir.parent, 0o777)
+    return job, marker
+
+
+def daemon_running(instdir):
+    return subprocess.run(["pgrep", "-f", f"{instdir}/Minosse.py"],
+                          capture_output=True).returncode == 0
+
+
+def minosse(linkdir, *args, answers=""):
+    return subprocess.run([f"{linkdir}/minosse", *args], input=answers,
+                          capture_output=True, text=True, timeout=30)
+
+
+def test_minosse_start_and_stop(installed):
+    instdir, linkdir = installed
+    result = minosse(linkdir, "start")
+    assert "Minosse demon started" in result.stdout
+    # Nothing is pending, so there is nothing to ask.
+    assert "Keep them?" not in result.stdout
+    time.sleep(2)
+    assert daemon_running(instdir), "daemon is not running"
+
+    job, marker = user_job(instdir)
     assert as_alice(f"{linkdir}/msub", "-f", job).returncode == 0
     assert wait_until(marker.exists)
     assert marker.read_text().strip() == "alice"
 
-    subprocess.run([f"{linkdir}/minosse", "stop"], timeout=30)
-    assert wait_until(lambda: subprocess.run(
-        ["pgrep", "-f", f"{instdir}/Minosse.py"],
-        capture_output=True).returncode != 0)
+    minosse(linkdir, "stop")
+    assert wait_until(lambda: not daemon_running(instdir))
     assert read_mns(instdir / "conf.mns") == {"status": "down"}
+
+
+@pytest.mark.parametrize("flag, answers, kept", [
+    (None, "\n", True),         # the default answer keeps them
+    (None, "yes\n", True),
+    (None, "no\n", False),
+    (None, "", True),           # no terminal to answer: keep them
+    ("--keep", "", True),
+    ("--delete", "", False),
+])
+def test_minosse_start_asks_about_pending_jobs(installed, flag, answers,
+                                               kept):
+    instdir, linkdir = installed
+    job, marker = user_job(instdir)
+    # Submitted while the daemon is down.
+    assert as_alice(f"{linkdir}/msub", "-f", job).returncode == 0
+    result = minosse(linkdir, "start", *filter(None, [flag]), answers=answers)
+    try:
+        assert "Jobs still waiting from the last run:" in result.stdout
+        assert f"alice\t{job}" in result.stdout
+        assert ("Keep them? [Yes/no]" in result.stdout) == (flag is None)
+        if kept:
+            assert "Pending jobs kept" in result.stdout
+            assert wait_until(marker.exists)
+        else:
+            assert "Pending jobs deleted" in result.stdout
+            time.sleep(2)
+            assert not marker.exists()
+            assert list((instdir / "requests").iterdir()) == []
+    finally:
+        minosse(linkdir, "stop")
 
 
 def test_uninstall_removes_everything(installed):

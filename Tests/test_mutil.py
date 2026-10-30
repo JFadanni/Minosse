@@ -294,9 +294,9 @@ def test_endjob_reaps_finished_child(tmp_path):
 
 def test_cleanstatus_resets_the_node(sandbox, sleeper):
     sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid),
-                             "2": job(status="que")})
-    sandbox.request("subjob123", {})
-    sandbox.request("remove456", {})
+                             "2": job(status="que", script="/jobs/b.sh")})
+    sandbox.request("subjob123", {"script": "/jobs/c.sh"})
+    sandbox.request("remove456", {"id": "2"})
     status = {"status": "down", "Ncpu": 3, "RAM": 500, "HDmemory": 1,
               "lastid": 41}
 
@@ -306,13 +306,45 @@ def test_cleanstatus_resets_the_node(sandbox, sleeper):
 
     assert status == {"status": "up", "Ncpu": 0, "RAM": 0, "HDmemory": 0,
                       "lastid": 41}
-    assert sandbox.read("charge") == {}
     assert sandbox.read("conf") == {"status": "up"}
-    # Requests sent while the daemon was down are handled once it runs.
-    assert len(sandbox.pending("subjob")) == len(sandbox.pending("remove")) == 1
     assert sleeper.wait(timeout=5) == -signal.SIGTERM
-    assert "All jobs killed" in sandbox.messages()
+    # By default the pending jobs wait for the next run.
+    assert sandbox.read("charge") == {"2": job(status="que",
+                                               script="/jobs/b.sh")}
+    assert len(sandbox.pending("subjob")) == len(sandbox.pending("remove")) == 1
+    assert "All running jobs killed" in sandbox.messages()
+    assert "2 pending jobs kept" in sandbox.messages()
     assert "status machine cleaned" in sandbox.messages()
+
+
+def test_cleanstatus_can_delete_pending_jobs(sandbox, sleeper):
+    sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid),
+                             "2": job(status="que")})
+    sandbox.request("subjob123", {"script": "/jobs/c.sh"})
+    sandbox.request("remove456", {"id": "2"})
+    (sandbox.requests / "notes.txt").write_text("not a request")
+    Mutil.cleanstatus({"Ncpu": 1, "RAM": 1, "HDmemory": 0}, sandbox.mdir,
+                      sandbox.base("charge"), sandbox.base("conf"),
+                      keep=False)
+    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert sandbox.read("charge") == {}
+    assert sandbox.pending("subjob") == sandbox.pending("remove") == []
+    assert (sandbox.requests / "notes.txt").exists()
+    assert "Pending jobs deleted" in sandbox.messages()
+
+
+def test_pendingjobs_lists_queued_and_unread_submissions(sandbox):
+    sandbox.write("charge", {"1": job(status="run", pid=99),
+                             "2": job(status="que", script="/jobs/b.sh")})
+    sandbox.request("subjob1", {"script": "/jobs/c.sh"})
+    (sandbox.requests / "subjob2.mns").write_text("{garbage")
+    sandbox.request("remove1", {"id": "2"})
+    assert Mutil.pendingjobs(sandbox.mdir, sandbox.base("charge")) == [
+        ("alice", "/jobs/b.sh"), (ME, "/jobs/c.sh")]
+
+
+def test_pendingjobs_on_idle_node(sandbox):
+    assert Mutil.pendingjobs(sandbox.mdir, sandbox.base("charge")) == []
 
 
 def checkdemon(box):
@@ -329,13 +361,15 @@ def test_checkdemon_keeps_running_while_up(sandbox):
 def test_checkdemon_stops_on_request(sandbox, sleeper):
     sandbox.write("conf", {"status": "stop"})
     sandbox.write("charge", {"1": job(status="run", pid=sleeper.pid,
-                                      Ncpu=2)})
+                                      Ncpu=2),
+                             "2": job(status="que")})
     sandbox.write("status", {**sandbox.read("status"), "Ncpu": 2})
     with pytest.raises(SystemExit) as exit_:
         checkdemon(sandbox)
     assert exit_.value.code == 0
     assert sandbox.read("conf") == {"status": "down"}
-    assert sandbox.read("charge") == {}
+    # The queued job waits for the next start.
+    assert sandbox.read("charge") == {"2": job(status="que")}
     assert sandbox.read("status")["Ncpu"] == 0
     assert sleeper.wait(timeout=5) == -signal.SIGTERM
     assert "---MINOSSE STOPS---" in sandbox.messages()
