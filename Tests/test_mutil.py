@@ -85,8 +85,9 @@ def test_writewarning(tmp_path):
 
 def test_writefatalerror_logs_and_exits(tmp_path):
     log = tmp_path / "messages"
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exit_:
         Mutil.writefatalerror("boom", str(log))
+    assert exit_.value.code == 1
     text = log.read_text()
     assert "FATAL:  boom" in text
     assert "--- MINOSSE STOPS ABNORMALLY ---" in text
@@ -202,8 +203,9 @@ def test_sortbypriority_empty():
     ({"Ncpu": 0, "RAM": 0, "HDmemory": 0}, True),
     ({"Ncpu": 3, "RAM": 999, "HDmemory": 9}, True),
     ({"Ncpu": 4, "RAM": 0, "HDmemory": 0}, False),
-    ({"Ncpu": 0, "RAM": 1000, "HDmemory": 0}, False),
-    ({"Ncpu": 0, "RAM": 0, "HDmemory": 10}, False),
+    # Whether a job fits in the free RAM and disk is checked job by job.
+    ({"Ncpu": 0, "RAM": 1000, "HDmemory": 0}, True),
+    ({"Ncpu": 0, "RAM": 0, "HDmemory": 10}, True),
     ({"Ncpu": 5, "RAM": 0, "HDmemory": 0}, False),
 ])
 def test_find_available_resources(used, free_space):
@@ -213,6 +215,17 @@ def test_find_available_resources(used, free_space):
                          "Ncpu": 4 - used["Ncpu"],
                          "RAM": 1000 - used["RAM"],
                          "HDmemory": 10 - used["HDmemory"]}
+
+
+def test_node_without_disk_runs_jobs():
+    # The work partition is under 1 GB, so minosse_config.sh wrote 0.
+    node = {"Ncpu": 4, "RAM": 1000, "HDmemory": 0}
+    available = Mutil.find_available_resources(
+        {"Ncpu": 0, "RAM": 0, "HDmemory": 0}, node)
+    assert available["free_space"]
+    queue = {"1": job(HDmemory=0)}
+    assert Mutil.invalidjob({**queue["1"], "script": "/a"}, node) is None
+    assert schedule(available, queue) == ["1"]
 
 
 def schedule(available, queue):
@@ -614,6 +627,23 @@ def test_submitjobs_rejects_jobs_that_can_never_run(sandbox, fields, error):
     assert error in sandbox.messages()
 
 
+def test_submitjobs_sets_the_submission_time(sandbox):
+    # mstat -v shows it: a request written by hand may not have it.
+    request = submission()
+    del request["subtime"]
+    sandbox.request("subjob1", request)
+    submitjobs(sandbox)
+    assert sandbox.read("charge")["1"]["subtime"]
+
+
+@needs_server
+def test_collectrequests_rejects_files_of_unknown_owners(sandbox):
+    path = sandbox.request("subjob1", submission())
+    os.chown(path, 54321, -1)
+    assert collect(sandbox, "subjob") == {}
+    assert "unknown owner 54321" in sandbox.messages()
+
+
 def test_submitjobs_rejects_requests_without_fields(sandbox):
     sandbox.request("subjob1", {})
     submitjobs(sandbox)
@@ -717,6 +747,21 @@ def test_ifrunning_with_daemon_returns(tmp_path):
     proc = start_fake_daemon(tmp_path / "Minosse.py")
     try:
         assert wait_until(lambda: Mutil.ifrunning(f"{tmp_path}/") is None)
+    finally:
+        proc.kill()
+        proc.wait()
+
+
+def test_ifrunning_ignores_other_programs_opening_the_daemon(tmp_path,
+                                                            capsys):
+    # As "vim <Mdir>Minosse.py" would: argv[0] is not a Python interpreter.
+    path = tmp_path / "Minosse.py"
+    path.write_text("import time\ntime.sleep(60)\n")
+    proc = subprocess.Popen(["vim", str(path)], executable=sys.executable)
+    try:
+        with pytest.raises(SystemExit):
+            Mutil.ifrunning(f"{tmp_path}/")
+        assert "no minosse demon running!" in capsys.readouterr().out
     finally:
         proc.kill()
         proc.wait()

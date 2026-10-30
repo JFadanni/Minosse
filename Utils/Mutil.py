@@ -41,13 +41,13 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 
 def writeinitializationmessage(mess):
     """write the opening string in the messages file""" 
-    with open(mess,'w') as log:
+    with open(mess,'w',encoding='utf-8') as log:
         log.write(time.asctime()+'   ---MINOSSE START---\n')
     return
 
 def writemessage(wrote,mess):
     """write a string in the messages file"""
-    with open(mess,'a') as log:
+    with open(mess,'a',encoding='utf-8') as log:
         log.write(time.asctime()+'   '+wrote+'\n')
     return
 
@@ -60,8 +60,7 @@ def writefatalerror(wrote,mess):
     """write an error message end exit from Minosse"""
     writemessage('FATAL:  '+wrote,mess)
     writemessage('--- MINOSSE STOPS ABNORMALLY ---',mess)
-    sys.exit(0)
-    return
+    sys.exit(1)
 
 ##------------------------------------------------------------------------------
 ## read files
@@ -76,7 +75,7 @@ def requestdir(Mdir):
 
 def readallfile(filename):
     """Read an entire mns file and store it in a dictionary"""
-    with open(filename+'.mns','r') as filein:
+    with open(filename+'.mns','r',encoding='utf-8') as filein:
         allvar = json.load(filein)
     return allvar
 
@@ -92,7 +91,7 @@ def writeallfile(filename,allvar):
     that readers never see it half written."""
     dirname, basename = os.path.split(filename)
     tmp = os.path.join(dirname, '.'+basename+'.tmp')
-    with open(tmp,'w') as fileout:
+    with open(tmp,'w',encoding='utf-8') as fileout:
         json.dump(allvar,fileout,indent=2)
     os.chmod(tmp,0o644)
     os.replace(tmp,filename+'.mns')
@@ -155,10 +154,9 @@ def find_available_resources(status,realvalue): # New function
     free_cpu = realvalue['Ncpu'] - used_cpu
     free_ram = realvalue['RAM'] - used_ram
     free_hd = realvalue['HDmemory'] - used_hd
-    if free_cpu > 0 and free_ram > 0 and free_hd > 0:
-        free_space = True
-    else:
-        free_space = False
+    # every job needs a cpu; whether it also fits in RAM and disk is
+    # checked job by job: a node without disk (HDmemory 0) still runs jobs
+    free_space = free_cpu > 0
     available = {'free_space': free_space, 'Ncpu': free_cpu, 'RAM': free_ram, 'HDmemory': free_hd}
     return available
 
@@ -351,12 +349,15 @@ def readrequest(filename):
     Request directories are world-writable, so links and special files are
     refused, and the owner of the file, not its content, names the user."""
     fd = os.open(filename,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
-    with os.fdopen(fd) as filein:
+    with os.fdopen(fd,encoding='utf-8') as filein:
         info = os.fstat(filein.fileno())
         if not S_ISREG(info.st_mode):
             raise ValueError('not a regular file')
         content = json.load(filein)
-    return pwd.getpwuid(info.st_uid).pw_name, content
+    try:
+        return pwd.getpwuid(info.st_uid).pw_name, content
+    except KeyError: # a deleted user, for example
+        raise ValueError(f"unknown owner {info.st_uid}") from None
 
 def requestname(prefix):
     """A unique name for a request file, sorting in submission order"""
@@ -421,6 +422,7 @@ def submitjobs(Rdir,fileA,file2,file3,node,mess):
         jobid = str(status['lastid'])
         # only the demon decides these
         job.update(id=jobid, status='que', pid='', runtime='')
+        job.setdefault('subtime',time.strftime("%m/%d/%y %H.%M.%S", time.localtime()))
         charge[jobid] = job
         writemessage(f"Job {jobid} {job['script']} queued",mess)
     writeallfile(file2,charge)
@@ -432,8 +434,10 @@ def ifrunning(Mdir):
     status='down'
     a=[]
     for line in ps:
-        path=line.split()[1]
-        if path == f"{Mdir}Minosse.py":
+        args=line.split()
+        # not, for example, an editor opening Minosse.py
+        if (len(args) > 1 and 'python' in os.path.basename(args[0])
+                and args[1] == f"{Mdir}Minosse.py"):
             status='ok'
             a.append('ok')
     if len(a) > 1 :

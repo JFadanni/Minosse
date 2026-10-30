@@ -33,7 +33,7 @@ if [ $var = 'Yes' -o $var = 'Y' -o $var = 'y' -o $var = 'yes' ] ; then
         link=$linkdir
 	run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}')
 	if [[ -n $run ]]; then
-		minosse stop
+		$instdir/minosse stop
 	fi
 	rm -fr $instdir
 	rm $link/msub $link/mdel $link/mstat $link/minosse $link/minosse_uninst

@@ -84,6 +84,15 @@ def test_config_describes_this_machine(configured):
     assert (defaults["Ncpu"], defaults["status"]) == (1, "que")
 
 
+def test_config_accepts_a_directory_inside_a_partition(source):
+    os.makedirs("/scratch/minosse", exist_ok=True)
+    result = run_script(source, "minosse_config.sh",
+                        f"/scratch/minosse\n{SYSMEM}\n50\ny\n")
+    assert "INSTALLATION ABORT" not in result.stdout, result.stdout
+    node = read_mns(source / "Tmp" / "nodes.mns")
+    assert node["HDmemory"] == shutil.disk_usage("/scratch").total // 2**30
+
+
 def test_config_aborts_on_unknown_partition(source):
     result = run_script(source, "minosse_config.sh", "/no/such/partition\n")
     assert "INSTALLATION ABORT" in result.stdout
@@ -226,6 +235,19 @@ def test_minosse_start_asks_about_pending_jobs(installed, flag, answers,
             assert list((instdir / "requests").iterdir()) == []
     finally:
         minosse(linkdir, "stop")
+
+
+def test_uninstall_stops_the_daemon(installed):
+    instdir, linkdir = installed
+    minosse(linkdir, "start")
+    assert wait_until(lambda: daemon_running(instdir))
+    # As root usually runs it, with the links directory not in PATH.
+    result = subprocess.run(["bash", f"{instdir}/minosse_uninst.sh"],
+                            input="yes\n", capture_output=True, text=True,
+                            env={**os.environ, "PATH": "/usr/bin:/bin"})
+    assert "Minosse demon stopped" in result.stdout, result.stderr
+    assert "Minosse uninstalled" in result.stdout
+    assert wait_until(lambda: not daemon_running(instdir))
 
 
 def test_uninstall_removes_everything(installed):

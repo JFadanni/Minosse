@@ -44,9 +44,9 @@ if [[ -z $workdir ]]; then
 fi
 
 check $workdir
-partition=$(df | fgrep -w $workdir | awk '{printf "%i", $2/1048576}')
-partname=$(df | fgrep -w $workdir | awk '{print $6}')
-devname=$(df | fgrep -w $workdir | awk '{print $1}')
+partition=$(df -P $workdir | awk 'NR==2 {printf "%i", $2/1048576}')
+partname=$(df -P $workdir | awk 'NR==2 {print $6}')
+devname=$(df -P $workdir | awk 'NR==2 {print $1}')
 check $partition
 check $partname
 check $devname

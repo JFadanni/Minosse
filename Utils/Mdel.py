@@ -80,7 +80,7 @@ delvalues = [script,job,options.all,pwd.getpwuid(os.getuid()).pw_name]
 deljob = {}
 
 for vname, vval in zip(delkeys, delvalues):
-   deljob[vname] = vval
+    deljob[vname] = vval
 
 
 writeallfile(requestdir(Mdir)+requestname(file8),deljob)
