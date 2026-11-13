@@ -167,15 +167,20 @@ mstat        # one line for each job
 mstat -v     # all the details
 ```
 
-### Deleting a job
+### Deleting jobs
 
 ```sh
 mdel -j id                  # by job id, as shown by mstat
+mdel -j 3 4 7-10            # several ids, and ranges of ids
 mdel -s path/scriptname     # every job of yours with this script
+mdel --all-jobs             # all your jobs, queued and running
 ```
 
-You can delete only your own jobs. Deleting a running job kills all its
-processes.
+You can delete only your own jobs: a range skips the jobs of the other
+users. Deleting a running job kills all its processes.
+
+Root can empty the whole queue, killing the running jobs of every user,
+with `mdel --flush`.
 
 
 ## How Minosse runs the jobs

@@ -289,6 +289,72 @@ def test_mdel_cannot_delete_another_users_job(sandbox, daemon):
     assert process_alive(sandbox.job_pid("a"))
 
 
+def queue_jobs(box, daemon, names, user="alice"):
+    """Submit jobs that wait behind a running blocker: their ids, by name."""
+    ids = {}
+    for name in names:
+        script = box.job_script(name)
+        msub(box, script, "-c", 4, user=user)
+        ids[name], _ = daemon.wait_for(lambda: box.find_job(script),
+                                       f"{name} in charge.mns")
+    return ids
+
+
+def handled(box):
+    return not box.pending("remove") and box.read("delete") == {}
+
+
+def test_mdel_several_ids_and_ranges(sandbox, daemon):
+    msub(sandbox, sandbox.job_script("blocker", 30), "-c", 4)
+    daemon.wait_for(lambda: sandbox.started_by("blocker"), "blocker to start")
+    ids = queue_jobs(sandbox, daemon, ["a", "b", "c", "d", "e"])
+    result = mdel(sandbox, "-j", ids["a"], f"{ids['c']}-{ids['d']}")
+    assert result.returncode == 0, result.stderr
+    daemon.wait_for(lambda: handled(sandbox), "the request to be handled")
+    left = {entry["script"] for entry in sandbox.read("charge").values()}
+    assert left == {str(sandbox.jobs / f"{name}.sh")
+                    for name in ("blocker", "b", "e")}
+
+
+def test_mdel_all_jobs(sandbox, daemon):
+    msub(sandbox, sandbox.job_script("blocker", 30), "-c", 4)
+    child = daemon.wait_for(lambda: sandbox.job_pid("blocker", "child"),
+                            "blocker to start its child")
+    queue_jobs(sandbox, daemon, ["a", "b"])
+    queue_jobs(sandbox, daemon, ["bob"], user="bob")
+    assert mdel(sandbox, "--all-jobs").returncode == 0
+    daemon.wait_for(lambda: not process_alive(child),
+                    "the running job of alice to be killed")
+    # bob's job was waiting behind alice's: now it runs
+    daemon.wait_for(lambda: sandbox.started_by("bob"), "bob's job to start")
+    assert all(entry["user"] == "bob"
+               for entry in sandbox.read("charge").values())
+
+
+def test_mdel_flush(sandbox, daemon):
+    msub(sandbox, sandbox.job_script("blocker", 30), "-c", 4)
+    child = daemon.wait_for(lambda: sandbox.job_pid("blocker", "child"),
+                            "blocker to start its child")
+    queue_jobs(sandbox, daemon, ["a"])
+    queue_jobs(sandbox, daemon, ["b"], user="bob")
+    assert sandbox.run("Mdel", "--flush").returncode == 0
+    daemon.wait_for(lambda: sandbox.read("charge") == {},
+                    "every job to be deleted")
+    assert not process_alive(child)
+    assert "every job deleted by root" in sandbox.messages()
+
+
+def test_users_cannot_flush_the_queue(sandbox, daemon):
+    msub(sandbox, sandbox.job_script("a", 30), user="bob")
+    daemon.wait_for(lambda: sandbox.started_by("a"), "job a to start")
+    # Written by hand, bypassing the check of mdel.
+    sandbox.request("remove1", {"flush": True}, owner="alice")
+    daemon.wait_for(lambda: handled(sandbox), "the request to be handled")
+    assert sandbox.find_job(sandbox.jobs / "a.sh")
+    assert process_alive(sandbox.job_pid("a"))
+    assert "alice tried to delete the jobs of everybody" in sandbox.messages()
+
+
 # ---------------------------------------------------------------------------
 # stop
 # ---------------------------------------------------------------------------

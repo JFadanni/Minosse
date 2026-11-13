@@ -29,6 +29,8 @@ def test_mutil_reads_the_version():
 def test_changelog_documents_the_version():
     changelog = (SRC / "CHANGELOG.md").read_text()
     releases = re.findall(r"^## \[(.+?)\]", changelog, flags=re.M)
+    # the changes not released yet come first
+    releases = [r for r in releases if r != "Unreleased"]
     assert releases[0] == VERSION
     assert re.search(rf"^## \[{re.escape(VERSION)}\] - \d{{4}}-\d\d-\d\d$",
                      changelog, flags=re.M)

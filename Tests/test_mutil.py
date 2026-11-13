@@ -658,10 +658,11 @@ def checkdeletedjob(box):
                           box.base("status"), box.base("messages"))
 
 
-def mdel_request(box, id=None, script=None):
+def mdel_request(box, id=None, script=None, owner=None, **flags):
     """Drop a request file as Mdel.py writes it."""
     box.request("remove555", {"script": script, "id": id, "all": False,
-                              "user": ME})
+                              "user": ME, "alljobs": False, "flush": False,
+                              **flags}, owner=owner)
 
 
 def test_checkdeletedjob_without_requests_is_a_noop(sandbox):
@@ -726,6 +727,124 @@ def test_checkdeletedjob_warns_about_unknown_jobs(sandbox):
     checkdeletedjob(sandbox)
     assert list(sandbox.read("charge")) == ["1"]
     assert "job 99, which does not exist" in sandbox.messages()
+
+
+@pytest.mark.parametrize("specs, pairs", [
+    ([], []),
+    (["3"], [(3, 3)]),
+    ([3, "4", "7-10"], [(3, 3), (4, 4), (7, 10)]),
+    (["5-5"], [(5, 5)]),
+    (["007"], [(7, 7)]),
+])
+def test_parseids(specs, pairs):
+    assert Mutil.parseids(specs) == pairs
+
+
+@pytest.mark.parametrize("spec, error", [
+    ("abc", "abc is not a job id or a range of ids such as 7-10"),
+    ("7-", "is not a job id"), ("-3", "is not a job id"),
+    ("1-2-3", "is not a job id"), (" 3", "is not a job id"),
+    ("3.5", "is not a job id"), (True, "is not a job id"),
+    (None, "is not a job id"), ("10-7", "the range 10-7 is reversed"),
+])
+def test_parseids_rejects_malformed_ids(spec, error):
+    with pytest.raises(ValueError, match=error):
+        Mutil.parseids([spec])
+
+
+def test_isadmin():
+    assert Mutil.isadmin("root")
+    assert not Mutil.isadmin("nosuchuser")
+
+
+@needs_server
+def test_users_are_not_admins():
+    assert not Mutil.isadmin("alice")
+
+
+def test_checkdeletedjob_deletes_several_jobs(sandbox):
+    sandbox.write("charge", {str(i): job(user=ME) for i in range(1, 5)})
+    mdel_request(sandbox, id=["1", "3"])
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["2", "4"]
+
+
+def test_checkdeletedjob_deletes_a_range_of_the_users_jobs(sandbox):
+    sandbox.write("charge", {"1": job(user=ME), "2": job(user=ME),
+                             "3": job(user="somebody"), "4": job(user=ME),
+                             "5": job(user=ME)})
+    mdel_request(sandbox, id=["2-4", "9-12"])
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["1", "3", "5"]
+    # the jobs of others and the missing ids in a range are left quietly
+    assert "WARNING" not in sandbox.messages()
+
+
+def test_checkdeletedjob_deletes_a_job_named_twice_once(sandbox):
+    sandbox.write("charge", {"1": job(user=ME), "2": job(user=ME)})
+    mdel_request(sandbox, id=["2", "1-3", "2"])
+    checkdeletedjob(sandbox)
+    assert sandbox.read("charge") == {}
+    assert "WARNING" not in sandbox.messages()
+
+
+def test_checkdeletedjob_warns_about_other_users_jobs_named_by_id(sandbox):
+    sandbox.write("charge", {"1": job(user="somebody"), "2": job(user=ME)})
+    mdel_request(sandbox, id=["1", "2"])
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["1"]
+    assert f"WARNING:{ME} tried to delete job 1 of somebody" in \
+        sandbox.messages()
+
+
+@pytest.mark.parametrize("ids", [["x"], ["2", "5-1"], [["1"]], {"1": 1}])
+def test_checkdeletedjob_ignores_forged_ids(sandbox, ids):
+    sandbox.write("charge", {"1": job(user=ME), "2": job(user=ME)})
+    mdel_request(sandbox, id=ids)
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["1", "2"]
+    assert f"WARNING:delete request of {ME} ignored" in sandbox.messages()
+    assert sandbox.read("delete") == {}
+
+
+def test_checkdeletedjob_deletes_all_the_users_jobs(sandbox, sleeper):
+    sandbox.write("charge", {
+        "1": job(user=ME, status="run", pid=sleeper.pid, Ncpu=2, RAM=300),
+        "2": job(user="somebody"), "3": job(user=ME)})
+    sandbox.write("status", {"Ncpu": 2, "RAM": 300, "HDmemory": 0,
+                             "status": "up"})
+    mdel_request(sandbox, alljobs=True)
+    checkdeletedjob(sandbox)
+    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert list(sandbox.read("charge")) == ["2"]
+    assert sandbox.read("status")["Ncpu"] == 0
+    assert "WARNING" not in sandbox.messages()
+
+
+@needs_server
+def test_checkdeletedjob_flush_by_root_deletes_every_job(sandbox, sleeper):
+    sandbox.write("charge", {
+        "1": job(user="alice", status="run", pid=sleeper.pid, Ncpu=2),
+        "2": job(user="bob"), "3": job(user="root")})
+    sandbox.write("status", {"Ncpu": 2, "RAM": 100, "HDmemory": 0,
+                             "status": "up"})
+    mdel_request(sandbox, flush=True, owner="root")
+    checkdeletedjob(sandbox)
+    assert sleeper.wait(timeout=5) == -signal.SIGTERM
+    assert sandbox.read("charge") == {}
+    assert sandbox.read("status")["Ncpu"] == 0
+    assert "every job deleted by root" in sandbox.messages()
+
+
+@needs_server
+def test_checkdeletedjob_flush_is_for_root_only(sandbox):
+    # Written by hand, bypassing the check of mdel.
+    sandbox.write("charge", {"1": job(user="alice"), "2": job(user="bob")})
+    mdel_request(sandbox, flush=True, owner="alice")
+    checkdeletedjob(sandbox)
+    assert list(sandbox.read("charge")) == ["1", "2"]
+    assert "WARNING:alice tried to delete the jobs of everybody" in \
+        sandbox.messages()
 
 
 # ---------------------------------------------------------------------------

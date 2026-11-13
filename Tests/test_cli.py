@@ -9,7 +9,7 @@ import re
 import pytest
 
 import Mutil
-from conftest import job
+from conftest import job, needs_server
 
 ME = pwd.getpwuid(os.getuid()).pw_name
 
@@ -186,12 +186,64 @@ def test_mdel_by_id(sandbox, fake_daemon):
     assert result.returncode == 0, result.stderr
     request = delete_request(sandbox)
     # charge.mns keys are strings
-    assert request == {"id": "42", "script": None, "all": False, "user": ME}
+    assert request == {"id": ["42"], "script": None, "all": False,
+                       "user": ME, "alljobs": False, "flush": False}
 
 
-def test_mdel_rejects_non_integer_id(sandbox, fake_daemon):
-    result = sandbox.run("Mdel", "-j", "abc")
+def test_mdel_by_several_ids_and_ranges(sandbox, fake_daemon):
+    result = sandbox.run("Mdel", "-j", 3, 4, "7-10")
+    assert result.returncode == 0, result.stderr
+    assert delete_request(sandbox)["id"] == ["3", "4", "7-10"]
+
+
+@pytest.mark.parametrize("ids, error", [
+    (["abc"], "abc is not a job id or a range of ids"),
+    (["3", "x"], "x is not a job id"),
+    (["7-"], "7- is not a job id"),
+    (["-3"], "-3 is not a job id"),
+    (["10-7"], "the range 10-7 is reversed"),
+])
+def test_mdel_rejects_malformed_ids(sandbox, fake_daemon, ids, error):
+    result = sandbox.run("Mdel", "-j", *ids)
     assert result.returncode != 0
+    assert error in result.stderr
+    assert "Traceback" not in result.stderr
+    assert sandbox.pending("remove") == []
+
+
+def test_mdel_all_jobs(sandbox, fake_daemon):
+    result = sandbox.run("Mdel", "--all-jobs")
+    assert result.returncode == 0, result.stderr
+    request = delete_request(sandbox)
+    assert request["alljobs"] is True
+    assert (request["id"], request["script"], request["flush"]) == (
+        None, None, False)
+
+
+@pytest.mark.parametrize("args", [
+    ["-j", 1, "-s", "job.sh"], ["-j", 1, "--all-jobs"],
+    ["-s", "job.sh", "--flush"], ["--all-jobs", "--flush"]])
+def test_mdel_takes_one_target(sandbox, fake_daemon, args):
+    result = sandbox.run("Mdel", *args)
+    assert result.returncode != 0
+    assert "not allowed with" in result.stderr
+    assert sandbox.pending("remove") == []
+
+
+@needs_server
+def test_mdel_flush_by_root(sandbox, fake_daemon):
+    result = sandbox.run("Mdel", "--flush")
+    assert result.returncode == 0, result.stderr
+    request = delete_request(sandbox)
+    assert request["flush"] is True
+    assert request["user"] == "root"
+
+
+@needs_server
+def test_mdel_flush_is_for_root_only(sandbox, fake_daemon):
+    result = sandbox.run("Mdel", "--flush", user="alice")
+    assert result.returncode != 0
+    assert "only root can delete the jobs of everybody" in result.stderr
     assert sandbox.pending("remove") == []
 
 
@@ -202,6 +254,7 @@ def test_mdel_by_script(sandbox, fake_daemon):
     # msub stores absolute paths
     assert request["script"] == os.path.abspath("job.sh")
     assert request["id"] is None
+    assert request["alljobs"] is False
 
 
 def test_mdel_requires_a_target(sandbox, fake_daemon):

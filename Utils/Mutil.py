@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sys
 import time
 import json
@@ -323,6 +324,57 @@ def checkdemon(file6,file2,file3,mess): # Updated function
         sys.exit(0)
     return
 
+def parseids(specs):
+    """The job ids and ranges of ids given to mdel -j, such as "3" or
+    "7-10", as (first, last) pairs; ValueError if one is malformed"""
+    pairs = []
+    for spec in specs:
+        match = re.fullmatch(r'([0-9]+)(?:-([0-9]+))?',str(spec))
+        if not match:
+            raise ValueError(f"{spec} is not a job id or a range of ids such as 7-10")
+        first = int(match[1])
+        last = int(match[2] or match[1])
+        if first > last:
+            raise ValueError(f"the range {spec} is reversed")
+        pairs.append((first,last))
+    return pairs
+
+def isadmin(user):
+    """True for root, who can delete the jobs of everybody"""
+    try:
+        return pwd.getpwnam(user).pw_uid == 0
+    except KeyError:
+        return False
+
+def deletetargets(request,alljobs):
+    """The ids of the jobs a delete request of mdel names
+
+    Single ids and scripts name the jobs of anybody, and deleting those of
+    other users is refused; ranges and --all-jobs name only the jobs of the
+    user, and a flush every job.  ValueError for malformed ids."""
+    user = request['user']
+    if request.get('flush') is True:
+        return list(alljobs)
+    if request.get('alljobs') is True:
+        return [jobid for jobid in alljobs if alljobs[jobid]['user'] == user]
+    ids = request.get('id')
+    if ids in (None,'',[]):
+        return [jobid for jobid in alljobs
+                if alljobs[jobid]['script'] == request.get('script')]
+    # mdel up to 2.0.0 sent a single id
+    if not isinstance(ids,list):
+        ids = [ids]
+    targets = []
+    for first, last in parseids(ids):
+        if first == last:
+            targets.append(str(first))
+        else:
+            targets.extend(jobid for jobid in alljobs
+                           if jobid.isdigit() and first <= int(jobid) <= last
+                           and alljobs[jobid]['user'] == user)
+    # once each, even if named twice
+    return list(dict.fromkeys(targets))
+
 def checkdeletedjob(file7,file2,file3,mess): # Updated function
     """check the requests of deleting jobs, collected by writejob"""
     inp = readallfile(file7)
@@ -333,16 +385,20 @@ def checkdeletedjob(file7,file2,file3,mess): # Updated function
     for delid in inp:
         delinst = inp[delid]
         duser = delinst['user']
-        if delinst.get('id'):
-            targets = [str(delinst['id'])]
-        else:
-            targets = [jobid for jobid in alljobs
-                       if alljobs[jobid]['script'] == delinst.get('script')]
+        flush = delinst.get('flush') is True
+        if flush and not isadmin(duser):
+            writewarning(f"{duser} tried to delete the jobs of everybody",mess)
+            continue
+        try:
+            targets = deletetargets(delinst,alljobs)
+        except ValueError as error:
+            writewarning(f"delete request of {duser} ignored: {error}",mess)
+            continue
         for jobid in targets:
             job = alljobs.get(jobid)
             if job is None:
                 writewarning(f"{duser} tried to delete job {jobid}, which does not exist",mess)
-            elif job['user'] != duser:
+            elif job['user'] != duser and not flush:
                 writewarning(f"{duser} tried to delete job {jobid} of {job['user']}",mess)
             else:
                 if job['status'] == 'run':
@@ -350,6 +406,8 @@ def checkdeletedjob(file7,file2,file3,mess): # Updated function
                     update_status(status,job,-1)
                 delete(jobid,alljobs)
                 writemessage(f"job {jobid} {job['script']} deleted",mess)
+        if flush:
+            writemessage(f"every job deleted by {duser}",mess)
     writeallfile(file2,alljobs)
     writeallfile(file3,status)
     writeallfile(file7,{})

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and Minosse follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 the version is kept in the `VERSION` file and each release is tagged `vX.Y.Z`.
 
+## [Unreleased]
+
+### Added
+
+- `mdel -j` takes several ids and ranges of ids: `mdel -j 3 4 7-10`
+  ([#8]). A range deletes only the jobs of the user.
+- `mdel --all-jobs` deletes all the jobs of the user, queued and running.
+- `mdel --flush`, for root only, deletes every job of every user.
+
+### Changed
+
+- `mdel` takes one of `-j`, `-s`, `--all-jobs` and `--flush`: with both `-j`
+  and `-s`, `-s` was ignored.
+
 ## [2.0.0] - 2026-10-30
 
 A rewrite of the demon and of the user commands, with a test suite.
@@ -80,6 +94,8 @@ A rewrite of the demon and of the user commands, with a test suite.
 
 ## [1.0.0] - 2023-09-25
 
+[#8]: https://github.com/JFadanni/Minosse/issues/8
+[Unreleased]: https://github.com/JFadanni/Minosse/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/JFadanni/Minosse/compare/v1.3.1...v2.0.0
 [1.3.1]: https://github.com/JFadanni/Minosse/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/JFadanni/Minosse/compare/v1.2.0...v1.3.0

@@ -3,7 +3,7 @@
 
 import os
 import pwd
-from   argparse   import ArgumentParser
+from   argparse   import ArgumentParser, ArgumentTypeError
 
 from    Mutil      import *
 from    Mutil      import __version__
@@ -43,16 +43,33 @@ mess=Mdir+'messages'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = ArgumentParser(description="Delete a job from the Minosse queue")
+def jobids(text):
+    """A job id or a range of ids, checked as the demon reads them"""
+    try:
+        parseids([text])
+    except ValueError as error:
+        raise ArgumentTypeError(str(error)) from None
+    return text
+
+parser = ArgumentParser(description="Delete jobs from the Minosse queue")
 
 parser.add_argument("--version", action="version",
                     version=f"%(prog)s {__version__}")
-parser.add_argument("-j", "--job",
-                    action="store", dest="job", type=int, default=None,
-                    help="id number")
-parser.add_argument("-s", "--script",
+target = parser.add_mutually_exclusive_group(required=True)
+target.add_argument("-j", "--job",
+                    action="store", dest="job", nargs="+", type=jobids,
+                    default=None, metavar="ID",
+                    help="ids, as shown by mstat, or ranges of ids: "
+                         "-j 3 4 7-10")
+target.add_argument("-s", "--script",
                     action="store", dest="script", default=None,
                     help="script name")
+target.add_argument("--all-jobs",
+                    action="store_true", dest="alljobs", default=False,
+                    help="delete all your jobs, queued and running")
+target.add_argument("--flush",
+                    action="store_true", dest="flush", default=False,
+                    help="delete every job of every user (root only)")
 parser.add_argument("-a", "--all",
                     action="store_true", dest="all", default=False,
                     help="kill all processes from the top script to the last "
@@ -60,8 +77,9 @@ parser.add_argument("-a", "--all",
 
 options = parser.parse_args()
 
-if options.job is None and options.script is None:
-    parser.error("give the job to delete: -j id or -s path/scriptname")
+# the demon checks it again, but it is better to know it now
+if options.flush and os.geteuid() != 0:
+    parser.error("only root can delete the jobs of everybody")
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -69,13 +87,12 @@ if options.job is None and options.script is None:
 
 ifrunning(Mdir)
 
-# job ids are the keys of charge.mns, which are strings
-job = None if options.job is None else str(options.job)
 # msub stores absolute paths
 script = None if options.script is None else os.path.abspath(options.script)
 
-delkeys = ['script','id','all','user']
-delvalues = [script,job,options.all,pwd.getpwuid(os.getuid()).pw_name]
+delkeys = ['script','id','all','user','alljobs','flush']
+delvalues = [script,options.job,options.all,pwd.getpwuid(os.getuid()).pw_name,
+             options.alljobs,options.flush]
 deljob = {}
 
 for vname, vval in zip(delkeys, delvalues):
