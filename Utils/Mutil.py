@@ -172,27 +172,201 @@ def find_available_resources(status,realvalue): # New function
     available = {'free_space': free_space, 'Ncpu': free_cpu, 'RAM': free_ram, 'HDmemory': free_hd}
     return available
 
-def check_for_submissions(available,priority_list,queue): # New function
+def check_for_submissions(available,priority_list,queue,quotas=None,used=None): # New function
     # It replaces the test... functions
     """Check for the jobs to be submitted
 
     Jobs start in priority order: a job that does not fit yet blocks the
-    ones after it, otherwise a stream of small jobs could starve a big one."""
-    free_cpu = available['Ncpu']
-    free_ram = available['RAM']
-    free_hd = available['HDmemory']
+    ones after it, otherwise a stream of small jobs could starve a big one.
+
+    With quotas, used gives the cpus and RAM each user's running jobs hold.
+    A job that would take its user over the quota waits without blocking
+    the other users, but it blocks the later jobs of its user, for the same
+    reason.  A forced job (msub --force) ignores the quota."""
+    quotas = quotas or {}
+    used = {user: dict(usage) for user, usage in (used or {}).items()}
+    free = {key: available[key] for key in ('Ncpu','RAM','HDmemory')}
+    held = set()     # users with a job waiting for their quota
     to_be_submitted = []
-    for i in range(len(priority_list)):
-        jobid = priority_list[i][0]
+    for jobid, _ in priority_list:
         job = queue[jobid]
-        if free_cpu >= job['Ncpu'] and free_ram >= job['RAM'] and free_hd >= job['HDmemory']:
-            to_be_submitted.append(jobid)
-            free_cpu -= job['Ncpu']
-            free_ram -= job['RAM']
-            free_hd -= job['HDmemory']
-        else:
+        user = job['user']
+        quota = userquota(user,quotas)
+        if quota is not None and job.get('force') is not True:
+            if user in held or not withinquota(job,quota,used.get(user)):
+                # a job bigger than a quota lowered after its submission
+                # waits for the quota to rise again, without holding the user
+                if withinquota(job,quota):
+                    held.add(user)
+                continue
+        if not all(free[key] >= job[key] for key in free):
             break
+        to_be_submitted.append(jobid)
+        for key in free:
+            free[key] -= job[key]
+        usage = used.setdefault(user,dict.fromkeys(QUOTAKEYS,0))
+        for key in QUOTAKEYS:
+            usage[key] += job[key]
     return to_be_submitted
+
+##------------------------------------------------------------------------------
+## quotas
+##------------------------------------------------------------------------------
+
+QUOTAKEYS = ('Ncpu','RAM')
+
+def minimumquota(node):
+    """The smallest quota of a user: one cpu, and the RAM per cpu of the node,
+    so that everybody can run at least a job of the node's average size"""
+    return {'Ncpu': 1, 'RAM': node['RAM'] // node['Ncpu']}
+
+def invalidquotas(quotas,node):
+    """Why the content of quotas.mns is malformed, or None
+
+    It maps user names to the cpus and the RAM their running jobs can use,
+    as {"Ncpu": cpus, "RAM": MB}."""
+    if not isinstance(quotas,dict):
+        return "it must map user names to quotas"
+    least = minimumquota(node)
+    for user, quota in quotas.items():
+        if not isinstance(quota,dict) or set(quota) != set(QUOTAKEYS):
+            return f"the quota of {user} must give Ncpu and RAM, and nothing else"
+        for key in QUOTAKEYS:
+            if not isinstance(quota[key],int) or isinstance(quota[key],bool):
+                return f"the {key} quota of {user} must be an integer"
+            if quota[key] < least[key]:
+                return f"the {key} quota of {user} must be at least {least[key]}"
+    return None
+
+def parsequotas(text,node):
+    """The quotas in the text of quotas.mns; ValueError if malformed"""
+    quotas = json.loads(text)
+    error = invalidquotas(quotas,node)
+    if error:
+        raise ValueError(error)
+    return quotas
+
+def readquotas(filename,node):
+    """Read the quotas of the users: none without the file
+
+    Raises ValueError if the file is malformed."""
+    try:
+        with open(filename+'.mns','r',encoding='utf-8') as filein:
+            return parsequotas(filein.read(),node)
+    except FileNotFoundError:
+        return {}
+
+def smallestquota(quotas):
+    """The quota of the users left out of the file: the smallest cpus and
+    the smallest RAM in it, so that, once quotas are enforced, nobody, not
+    even a user new to the machine, escapes them"""
+    return {key: min(quota[key] for quota in quotas.values()) for key in QUOTAKEYS}
+
+def userquota(user,quotas):
+    """The cpus and RAM the running jobs of a user can use, None without limit"""
+    if user in quotas:
+        return quotas[user]
+    if quotas:
+        return smallestquota(quotas)
+    return None
+
+def withinquota(job,quota,used=None):
+    """True if the job, with the running jobs that use used, fits in quota"""
+    used = used or {}
+    return all(used.get(key,0) + job[key] <= quota[key] for key in QUOTAKEYS)
+
+def formatquota(quota):
+    """A quota in a few words"""
+    return f"{quota['Ncpu']} cpus {quota['RAM']} MB"
+
+def describequotas(quotas):
+    """The quotas in one line, for the messages file"""
+    if not quotas:
+        return "no quotas"
+    listed = ', '.join(f"{user} {formatquota(quota)}" for user, quota in quotas.items())
+    return f"{listed}, other users {formatquota(smallestquota(quotas))}"
+
+def loadquotas(filename,node,loaded,mess):
+    """Reread the quotas, since the admin changes them while the demon runs
+
+    loaded is (text of the file, quotas) from the previous call, (None, {})
+    the first time: the text, not the time of the file, tells a change, since
+    an editor can write the file twice within the same clock tick.  A
+    malformed file is reported once, and the previous quotas are kept."""
+    error = None
+    try:
+        with open(filename+'.mns','r',encoding='utf-8') as filein:
+            text = filein.read()
+    except FileNotFoundError:
+        text = '{}'
+    except (OSError, ValueError) as unreadable:
+        text = error = str(unreadable)
+    if text == loaded[0]:
+        return loaded
+    if error is None:
+        try:
+            quotas = parsequotas(text,node)
+        except ValueError as malformed:
+            error = str(malformed)
+    if error:
+        writewarning(f"quotas.mns ignored, the previous quotas are kept: {error}",mess)
+        return text, loaded[1]
+    writemessage(f"Quotas: {describequotas(quotas)}",mess)
+    return text, quotas
+
+def usedresources(charge):
+    """The cpus and RAM held by the running jobs of each user"""
+    used = {}
+    for job in charge.values():
+        if job['status'] == 'run':
+            usage = used.setdefault(job['user'],dict.fromkeys(QUOTAKEYS,0))
+            for key in QUOTAKEYS:
+                usage[key] += job[key]
+    return used
+
+def overquota(job,quotas):
+    """Why a job, unless forced, is bigger than the quota of its user, or None"""
+    quota = userquota(job['user'],quotas)
+    if quota is None or job.get('force') is True:
+        return None
+    for key in QUOTAKEYS:
+        if job[key] > quota[key]:
+            return f"{key} {job[key]} exceeds the quota of {job['user']} ({quota[key]})"
+    return None
+
+def shareram(cpus,nusers,node):
+    """The RAM quota going with cpus when nusers share the node
+
+    An equal share of the RAM, but never less than the RAM per cpu of the
+    node times cpus, so that the user can fill their cpus with jobs of the
+    node's average size, nor more than the node."""
+    percpu = node['RAM'] // node['Ncpu']
+    return min(node['RAM'], max(node['RAM'] // nusers, cpus * percpu))
+
+def splitquotas(users,node):
+    """Share the node equally among the users: the same cpus for each, at
+    least one, and the RAM going with them"""
+    if not users:
+        return {}
+    cpus = max(1, node['Ncpu'] // len(users))
+    return {user: {'Ncpu': cpus, 'RAM': shareram(cpus,len(users),node)}
+            for user in users}
+
+def machineusers(logindefs='/etc/login.defs'):
+    """The people using the machine: the users with a login shell and a uid
+    in the range login.defs gives to people, not to system accounts"""
+    limits = {'UID_MIN': 1000, 'UID_MAX': 60000}
+    try:
+        with open(logindefs,encoding='utf-8') as filein:
+            for line in filein:
+                fields = line.split()
+                if len(fields) > 1 and fields[0] in limits and fields[1].isdigit():
+                    limits[fields[0]] = int(fields[1])
+    except OSError:
+        pass
+    return sorted(entry.pw_name for entry in pwd.getpwall()
+                  if limits['UID_MIN'] <= entry.pw_uid <= limits['UID_MAX']
+                  and not entry.pw_shell.endswith(('nologin','false')))
 
 def isrunning(pid):
     """Check if a process is alive
@@ -415,16 +589,18 @@ def invalidjob(job,node):
     script = job.get('script')
     if not isinstance(script,str) or not script.startswith('/'):
         return "the script must be an absolute path"
+    if not isinstance(job.get('force',False),bool):
+        return "force must be true or false"
     return None
 
-def submitjobs(Rdir,fileA,file2,file3,node,mess):
+def submitjobs(Rdir,fileA,file2,file3,node,mess,quotas=None):
     """queue the new submitted jobs, giving them increasing ids
 
     The last id is kept in the status file, so ids are never reused."""
     charge = readallfile(file2)
     status = readallfile(file3)
     for job in collectrequests(Rdir,fileA,mess).values():
-        error = invalidjob(job,node)
+        error = invalidjob(job,node) or overquota(job,quotas or {})
         if error:
             writewarning(f"job {job.get('script')} of {job['user']} rejected: {error}",mess)
             continue

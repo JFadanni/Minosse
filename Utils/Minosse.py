@@ -45,6 +45,7 @@ file5='subjob'
 file6=Mdir+'conf'
 file7=Mdir+'delete'
 file8='remove'
+file9=Mdir+'quotas'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
@@ -80,17 +81,20 @@ status=cleanstatus(status,Mdir,file2,file6,keep=not options.delete)
 writeallfile(file3,status)
 realvalue=readallfile(file1)
 defaults=readallfile(file4)
+quotas=(None,{})
 
 while 1:
     ## read files
     status=readallfile(file3)
     charge=readallfile(file2)
+    quotas=loadquotas(file9,realvalue,quotas,mess)
     ## test free slots for the requests
     available_resources = find_available_resources(status,realvalue)
     queue = holdchained(find_queued_jobs(charge),charge)
     if available_resources['free_space'] and queue:
         priority_list = sortbypriority(queue)
-        jobs_to_submit = check_for_submissions(available_resources,priority_list,queue)
+        jobs_to_submit = check_for_submissions(available_resources,priority_list,queue,
+                                               quotas[1],usedresources(charge))
 
         for jobid in jobs_to_submit:
             job = charge[jobid]
@@ -130,6 +134,6 @@ while 1:
     ## check the stop file wich control the minosse  demon
     checkdemon(file6,file2,file3,mess)
     ## write in the charge file the new submitted job
-    submitjobs(requestdir(Mdir),file5,file2,file3,realvalue,mess)
+    submitjobs(requestdir(Mdir),file5,file2,file3,realvalue,mess,quotas[1])
     ## waiting time
     time.sleep(1)

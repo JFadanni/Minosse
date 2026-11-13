@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and Minosse follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
 the version is kept in the `VERSION` file and each release is tagged `vX.Y.Z`.
 
+## [Unreleased]
+
+### Upgrading from 2.0.0
+
+- Without `quotas.mns` nobody is limited, so 2.0.0 installations keep
+  working. To enforce quotas, reinstall as for 2.0.0: the installer adds
+  `minosse quota` and makes root the owner of every file.
+
+### Added
+
+- CPU and RAM quotas per user in `quotas.mns`, which only root can change
+  and the demon rereads while it runs ([discussion #2]). Users left out of
+  the file have the smallest CPUs and the smallest RAM in it. A quota is at
+  least 1 CPU and the RAM per CPU of the node. `msub` and the demon refuse
+  a single job over the quota; the jobs that would take a user over it
+  wait, without blocking the other users.
+- `minosse quota` sets the quotas: from a JSON file, by asking for the quota
+  of each user of the machine, or by sharing the node equally among them.
+- `msub --force` ignores the quota: the job runs, in order of priority, as
+  soon as the node has room for it.
+- `mstat -q` shows the quotas and the CPUs and RAM each user is using;
+  `mstat -v` shows the forced jobs.
+
+### Changed
+
+- Without `-m`, `msub` asks for the RAM in `defaults.mns` only up to the RAM
+  quota of the user.
+
+### Security
+
+- Every file in the installation directory belongs to root and only root
+  can write it, except the `requests` directory: `mv` kept the files written
+  by `minosse_config.sh` owned by whoever ran it, who could then change the
+  node description.
+
 ## [2.0.0] - 2026-10-30
 
 A rewrite of the demon and of the user commands, with a test suite.
@@ -80,6 +115,8 @@ A rewrite of the demon and of the user commands, with a test suite.
 
 ## [1.0.0] - 2023-09-25
 
+[discussion #2]: https://github.com/JFadanni/Minosse/discussions/2
+[Unreleased]: https://github.com/JFadanni/Minosse/compare/v2.0.0...HEAD
 [2.0.0]: https://github.com/JFadanni/Minosse/compare/v1.3.1...v2.0.0
 [1.3.1]: https://github.com/JFadanni/Minosse/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/JFadanni/Minosse/compare/v1.2.0...v1.3.0

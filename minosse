@@ -69,11 +69,17 @@ for user, script in pendingjobs('$instdir/', '$instdir/charge'):
 	version)
 		echo "Minosse $(cat $instdir/VERSION)"
 	;;
+	quota)
+		shift
+		exec $instdir/Mquota.py "$@"
+	;;
 	*)
-		echo -e "\nUsage: minosse start [--keep|--delete] / stop / version"
+		echo -e "\nUsage: minosse start [--keep|--delete] / stop / version / quota"
 		echo -e '  start or stop the minosse queue demon'
 		echo -e '  --keep, --delete: keep or delete the jobs still waiting'
-		echo -e '  from the last run, without asking\n'
+		echo -e '  from the last run, without asking'
+		echo -e '  quota: set the cpu and RAM quotas of the users'
+		echo -e '  (minosse quota -h for its options)\n'
 		exit
 	;;
 esac

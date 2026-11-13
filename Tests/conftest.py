@@ -23,7 +23,7 @@ SRC = Path(__file__).resolve().parent.parent
 UTILS = SRC / "Utils"
 sys.path.insert(0, str(UTILS))
 
-TOOLS = ("Minosse", "Msub", "Mstat", "Mdel", "Mutil")
+TOOLS = ("Minosse", "Msub", "Mstat", "Mdel", "Mutil", "Mquota")
 TEST_USERS = ("alice", "bob")
 NODE = {"Ncpu": 4, "RAM": 1000, "HDmemory": 10}
 
@@ -102,6 +102,7 @@ class Sandbox:
         self.write("charge", {})
         self.write("conf", {"status": "down"})
         self.write("delete", {})
+        self.write("quotas", {})
         self.write("nodes", {"NODE": "none", "hostname": hostname,
                              "Ncpu": node["Ncpu"], "RAM": node["RAM"],
                              "HDmemory": node["HDmemory"],

@@ -110,6 +110,54 @@ them. By default a job asks for 1 CPU and **all the RAM of the node**, so it
 runs alone: users should give the RAM their jobs need with `msub -m`, or you
 can lower the default `RAM` in `defaults.mns`.
 
+### Quotas
+
+`quotas.mns` caps the CPUs and the RAM (in MB) the running jobs of each user
+can use. It is empty after the installation, and then nobody is limited.
+Only root can change it, for example:
+
+```json
+{
+  "alice": {"Ncpu": 4, "RAM": 8000},
+  "bob": {"Ncpu": 8, "RAM": 6000}
+}
+```
+
+- A user cannot submit a single job bigger than their quota. They can
+  submit any number of smaller jobs: those that would take them over the
+  quota wait until their earlier jobs end, without holding up the jobs of
+  the other users.
+- **Every user not in the file has the smallest CPUs and the smallest RAM
+  in it** (4 CPUs and 6000 MB above): once quotas are enforced, a new user
+  of the machine cannot escape them. To give a user another quota, add them
+  to the file.
+- A quota is at least 1 CPU, so that nobody is locked out, and the RAM per
+  CPU of the node (`RAM` / `Ncpu` in `nodes.mns`), so that everybody can run
+  at least a job of the node's average size.
+- Minosse rereads the file while it runs, and writes the quotas it applies
+  in the `messages` file. If the file is malformed, it warns there and keeps
+  the previous quotas.
+- A job queued before its user's quota was lowered below its size waits
+  until the quota is raised again, or until the user deletes it.
+
+Set the quotas with `minosse quota`, as root:
+
+```sh
+minosse quota                  # list the users and ask for their quotas
+minosse quota --split          # share the node equally among the users
+minosse quota -f quotas.json   # read the quotas from a file, as above
+minosse quota --clear          # remove all the quotas
+minosse quota --show           # show them
+```
+
+Without options it lists the users of the machine, those with a login shell
+and a uid in the range `/etc/login.defs` gives to people, and the users
+already in the file. It offers to share the node equally among them, or asks
+for the quota of each. Sharing gives each user the same number of CPUs, at
+least one, and an equal share of the RAM, but never less than the RAM per
+CPU of the node times their CPUs. Users from a network directory (LDAP)
+that the machine does not list can be given a quota with `-f`.
+
 
 ## How to use
 
@@ -128,6 +176,8 @@ The flag `-h` gives the usage of every command, and `--version` its version.
   still waiting from the last run (queued, or submitted while the demon was
   down), `minosse start` lists them and asks whether to keep them; use
   `minosse start --keep` or `minosse start --delete` to skip the question.
+
+- Set the quotas of the users: see [Quotas](#quotas).
 
 - Show the installed version:
 
@@ -148,9 +198,10 @@ msub -f path/scriptname -c ncpu -m ram
 |---|---|---|
 | `-f`, `--file` | the job script (required) | |
 | `-c`, `--cpus` | number of CPUs | from `defaults.mns` (1) |
-| `-m`, `--memory` | RAM in MB | from `defaults.mns` (all the RAM) |
+| `-m`, `--memory` | RAM in MB | from `defaults.mns` (all the RAM), at most your RAM quota |
 | `-p`, `--priority` | priority: higher runs first | from `defaults.mns` (50) |
 | `-l`, `--link` | run the job after the earlier job with this script has ended | none |
+| `--force` | ignore your quota (see below) | off |
 
 The job script must be executable (`chmod u+x`) and start with an
 interpreter line such as `#!/bin/bash`. Minosse runs it as you, in the
@@ -160,11 +211,16 @@ one asking for more CPUs or RAM than the node has.
 `msub` does not print the id of the job: the demon gives it when it queues
 the job, and `mstat` shows it.
 
+If the machine has [quotas](#quotas), `msub` refuses a job with more CPUs
+or RAM than your quota. With `--force` the job ignores the quota: it runs,
+in order of priority, as soon as the node has room for it.
+
 ### Checking the queue
 
 ```sh
 mstat        # one line for each job
 mstat -v     # all the details
+mstat -q     # the quotas, and the CPUs and RAM each user is using
 ```
 
 ### Deleting a job
@@ -189,7 +245,10 @@ Jobs start in order of priority, and in order of submission at equal
 priority. A job that does not fit yet is not overtaken by smaller jobs:
 otherwise a stream of small jobs could keep a big one waiting forever. A job
 chained with `msub -l` waits, without blocking the others, until the earlier
-job it is chained to has ended.
+job it is chained to has ended. In the same way, a job that would take its
+user over the [quota](#quotas) waits without blocking the jobs of
+the other users; it does block the later jobs of its own user, so that their
+small jobs cannot starve their big one.
 
 The demon runs as root and starts each job with `runuser` as the user who
 submitted it: the owner of the request file, which users cannot fake. Users

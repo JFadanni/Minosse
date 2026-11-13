@@ -28,6 +28,8 @@ setup Minosse targets:
 |-------------------|---------------------------------------------------------|--------------|
 | `test_mutil.py`   | functions in `Utils/Mutil.py`                           | no           |
 | `test_cli.py`     | `msub`, `mstat`, `mdel` run as subprocesses             | no           |
+| `test_quotas.py`  | quotas: `Mutil.py` functions, `msub`, `mstat -q`, the daemon | daemon part only |
+| `test_mquota.py`  | `minosse quota` (`Mquota.py`), run as a subprocess       | users of the machine only |
 | `test_daemon.py`  | `Minosse.py` end to end: scheduling, deletion, stop, security | yes    |
 | `test_install.py` | `minosse_config.sh`, `minosse_install.sh`, `minosse_uninst.sh` | yes   |
 

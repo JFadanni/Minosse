@@ -37,6 +37,7 @@ Mdir="$instdir/"
 file1=Mdir+'nodes'
 file5='subjob'
 file4=Mdir+'defaults'
+file9=Mdir+'quotas'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ mess=Mdir+'messages'
 
 varnames=['hostname','Ncpu','RAM','architecture','status'
           ,'priority','pid','Njob','script','user','chain'
-          ,'subtime','runtime','HDmemory']
+          ,'subtime','runtime','HDmemory','force']
 
 ##------------------------------------------------------------------------------
 ## Loads defaults
@@ -68,8 +69,9 @@ parser.add_argument("-c", "--cpus",
                     action="store", dest="cpus", default=cpus, type=int,
                     help=f"number of cpus required [default={cpus}]")
 parser.add_argument("-m", "--memory",
-                    action="store", dest="memory", default=RAM, type=int,
-                    help=f"RAM memory requirement [default={RAM} MB]")
+                    action="store", dest="memory", default=None, type=int,
+                    help=f"RAM memory requirement [default={RAM} MB, or "
+                         "your RAM quota if smaller]")
 #parser.add_argument("-d", "--harddisck",
 #                    action="store", dest="HD", default=0, type=int,
 #                    help="HD scratch space required [default=0 GB]")
@@ -83,6 +85,10 @@ parser.add_argument("-l", "--link",
                     action="store", dest="chain", default="none",
                     help="run the job after the earlier job with this script "
                          "ends [default=none]")
+parser.add_argument("--force",
+                    action="store_true", dest="force", default=False,
+                    help="ignore your cpu and RAM quota: the job runs, in "
+                         "order of priority, as soon as the node has room")
 
 options = parser.parse_args()
 
@@ -100,19 +106,31 @@ script = os.path.abspath(options.file)
 chain = options.chain if options.chain == 'none' else os.path.abspath(options.chain)
 # not getpass.getuser(): it trusts $LOGNAME and $USER
 user = pwd.getpwuid(os.getuid()).pw_name
+node = readallfile(file1)
+try:
+    quotas = readquotas(file9,node)
+except (OSError, ValueError): # the demon keeps the previous quotas
+    quotas = {}
+quota = None if options.force else userquota(user,quotas)
+memory = options.memory
+if memory is None:
+    memory = RAM if quota is None else min(RAM,quota['RAM'])
 
-varvalues = [socket.gethostname(),options.cpus,options.memory,architecture,'que',
+varvalues = [socket.gethostname(),options.cpus,memory,architecture,'que',
          options.priority,'','',script,user,chain,time.strftime("%m/%d/%y %H.%M.%S", time.localtime()),'',
-         HD]
+         HD,options.force]
 
 job_prop = {}
 for vname, vval in zip(varnames, varvalues):
     job_prop[vname] = vval
 
 # the demon checks it again, but it is better to know it now
-error = invalidjob(job_prop,readallfile(file1))
+error = invalidjob(job_prop,node)
 if error:
     parser.error(f"the job can never run: {error}")
+error = overquota(job_prop,quotas)
+if error:
+    parser.error(f"{error}: ask for less, or use --force to ignore the quota")
 
 # the demon gives the job its id
 writeallfile(requestdir(Mdir)+requestname(file5),job_prop)

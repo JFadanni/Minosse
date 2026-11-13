@@ -162,6 +162,13 @@ cat <<END> defaults.mns
 }
 END
 
+echo 'quotas.mns'
+cat <<END> quotas.mns
+{
+
+}
+END
+
 echo 'status.mns'
 cat <<END> status.mns
 {

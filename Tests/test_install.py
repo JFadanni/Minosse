@@ -3,6 +3,7 @@ the simulated server, answering their prompts through stdin."""
 
 import json
 import os
+import pwd
 import shutil
 import stat
 import subprocess
@@ -21,7 +22,7 @@ pytestmark = [
 ]
 
 SYSMEM = 300
-MNS = ("charge", "conf", "delete", "defaults", "nodes", "status")
+MNS = ("charge", "conf", "delete", "defaults", "nodes", "quotas", "status")
 
 
 def run_script(cwd, script, answers):
@@ -53,6 +54,10 @@ def installed(configured):
     instdir = root / "Minosse"
     linkdir = root / "bin"
     linkdir.mkdir()
+    # minosse_config.sh needs no root, so its files may belong to a user
+    for path in (configured / "Tmp").iterdir():
+        os.chown(path, pwd.getpwnam("alice").pw_uid, -1)
+        os.chmod(path, 0o666)
     result = run_script(configured, "minosse_install.sh",
                         f"{instdir}\ny\n{linkdir}\nn\n")
     assert "INSTALLATION COMPLETE" in result.stdout, \
@@ -113,13 +118,13 @@ def test_install_lays_out_the_files(installed, configured):
     for name in MNS:
         read_mns(instdir / f"{name}.mns")
     for name in ("Minosse.py", "Msub.py", "Mstat.py", "Mdel.py", "Mutil.py",
-                 "minosse", "minosse_uninst.sh", "README.md", "COPYING",
-                 "VERSION"):
+                 "Mquota.py", "minosse", "minosse_uninst.sh", "README.md",
+                 "COPYING", "VERSION"):
         assert (instdir / name).is_file(), name
     assert not (configured / "Tmp").exists()
 
-    for name in ("Minosse.py", "Msub.py", "Mstat.py", "Mdel.py", "minosse",
-                 "minosse_uninst.sh"):
+    for name in ("Minosse.py", "Msub.py", "Mstat.py", "Mdel.py", "Mquota.py",
+                 "minosse", "minosse_uninst.sh"):
         text = (instdir / name).read_text()
         assert "$instdir" not in text, name
         assert str(instdir) in text, name
@@ -131,11 +136,43 @@ def test_install_lays_out_the_files(installed, configured):
     assert stat.S_IMODE(os.stat(instdir / "requests").st_mode) == 0o1777
     for name in MNS:
         assert not os.stat(instdir / f"{name}.mns").st_mode & stat.S_IWOTH
+    assert read_mns(instdir / "quotas.mns") == {}
 
     links = {"minosse": "minosse", "msub": "Msub.py", "mdel": "Mdel.py",
              "mstat": "Mstat.py", "minosse_uninst": "minosse_uninst.sh"}
     for link, target in links.items():
         assert os.readlink(linkdir / link) == f"{instdir}/{target}"
+
+
+def test_only_root_can_modify_the_installation(installed):
+    instdir, _ = installed
+    for path in [instdir, *instdir.rglob("*")]:
+        if path.name == "requests":
+            continue
+        info = os.stat(path)
+        assert info.st_uid == 0, path
+        assert not info.st_mode & (stat.S_IWGRP | stat.S_IWOTH), path
+    # msub and mstat read the node, the queue and the quotas
+    for name in MNS:
+        assert os.stat(instdir / f"{name}.mns").st_mode & stat.S_IROTH, name
+    assert as_alice("sh", "-c", f"echo {{}} > {instdir}/quotas.mns"
+                    ).returncode != 0
+    assert as_alice("sh", "-c", f"echo {{}} > {instdir}/nodes.mns"
+                    ).returncode != 0
+
+
+def test_minosse_quota(installed):
+    instdir, linkdir = installed
+    result = minosse(linkdir, "quota", "--split", "-y")
+    assert result.returncode == 0, result.stdout + result.stderr
+    quotas = read_mns(instdir / "quotas.mns")
+    assert set(quotas) == {"alice", "bob"}
+    assert os.stat(instdir / "quotas.mns").st_uid == 0
+    result = as_alice("python3", instdir / "Mquota.py", "--clear", "-y")
+    assert "only root can set the quotas" in result.stderr
+    assert read_mns(instdir / "quotas.mns") == quotas
+    result = as_alice(f"{linkdir}/mstat", "-q")
+    assert "other users" in result.stdout, result.stderr
 
 
 def as_alice(*cmd):

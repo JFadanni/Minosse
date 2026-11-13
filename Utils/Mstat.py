@@ -32,7 +32,9 @@ __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 
 Mdir="$instdir/"
+file1=Mdir+'nodes'
 file2=Mdir+'charge'
+file9=Mdir+'quotas'
 mess=Mdir+'messages'
 
 ##------------------------------------------------------------------------------
@@ -54,6 +56,10 @@ parser.add_argument("--version", action="version",
 parser.add_argument("-v", "--verbose",
                     action="store_true", dest="verbose", default=False,
                     help="make lots of noise")
+parser.add_argument("-q", "--quotas",
+                    action="store_true", dest="quotas", default=False,
+                    help="show the cpu and RAM quotas of the users, and "
+                         "what their running jobs use")
 
 options = parser.parse_args()
 
@@ -68,7 +74,28 @@ print ('-'*60)
 
 charge=readallfile(file2)
 
-if options.verbose:
+if options.quotas:
+    try:
+        quotas = readquotas(file9,readallfile(file1))
+    except (OSError, ValueError) as error:
+        print (f'  The quotas file is malformed: {error}')
+        quotas = None
+    if quotas == {}:
+        print ('  No quotas: the jobs of every user can use all the node')
+    elif quotas:
+        used = usedresources(charge)
+        none = dict.fromkeys(QUOTAKEYS,0)
+        print ('%15s' % 'user','%10s' % 'Ncpu','%16s' % 'RAM(MB)','   (used/quota)')
+        print ('-'*60)
+        for user in sorted(set(quotas) | set(used)):
+            usage = used.get(user,none)
+            quota = userquota(user,quotas)
+            print ('%15s' % user,'%10s' % f"{usage['Ncpu']}/{quota['Ncpu']}",
+                   '%16s' % f"{usage['RAM']}/{quota['RAM']}")
+        other = smallestquota(quotas)
+        print ('%15s' % 'other users','%10s' % f"-/{other['Ncpu']}",'%16s' % f"-/{other['RAM']}")
+
+elif options.verbose:
     if charge:
         print ("Queued or running jobs:\n","-"*60)
         for jobid in charge:
@@ -81,6 +108,7 @@ if options.verbose:
             print(f"  Ncpu: {job['Ncpu']}")
             print(f"  RAM: {job['RAM']}")
             print(f"  HDmemory: {job['HDmemory']}")
+            print(f"  force: {'yes' if job.get('force') is True else 'no'}")
             print(f"  subtime: {job['subtime']}")
             if job['status'] == 'run':
                 print(f"  runtime: {job['runtime']}")

@@ -100,6 +100,7 @@ mv Tmp/delete.mns $instdir
 mv Tmp/defaults.mns $instdir
 mv Tmp/nodes.mns $instdir
 mv Tmp/status.mns $instdir
+mv Tmp/quotas.mns $instdir
 
 rm -r Tmp
 
@@ -108,21 +109,28 @@ sed -e "s|\$instdir|$instdir|g" Utils/Mstat.py > $instdir/Mstat.py
 sed -e "s|\$instdir|$instdir|g" Utils/Msub.py > $instdir/Msub.py
 sed -e "s|\$instdir|$instdir|g" Utils/Mdel.py > $instdir/Mdel.py
 sed -e "s|\$instdir|$instdir|g" Utils/Mutil.py > $instdir/Mutil.py
+sed -e "s|\$instdir|$instdir|g" Utils/Mquota.py > $instdir/Mquota.py
 sed -e "s|\$instdir|$instdir|g" minosse > $instdir/minosse
 sed -e "s|\$instdir|$instdir|g" minosse_uninst.sh > $instdir/minosse_uninst.sh
 
 chmod u+x $instdir/minosse
 chmod u+x $instdir/Minosse.py
+chmod u+x $instdir/Mquota.py
 chmod u+x $instdir/minosse_uninst.sh
 chmod a+x $instdir/Msub.py
 chmod a+x $instdir/Mdel.py
 chmod a+x $instdir/Mstat.py
-# users must not write where the Python modules are: they would be imported
+# only root, who runs the demon, can modify the files of Minosse: users
+# could otherwise change the node, their quotas, or plant Python modules,
+# which the demon would import.  mv kept the owner of the files written by
+# minosse_config.sh, which may have been run by a user
+chown -R root: $instdir
+chmod -R go-w $instdir
 chmod 755 $instdir
+chmod a+r $instdir/*.mns
 # users drop their requests here; sticky, so they cannot touch the others'
 mkdir $instdir/requests
 chmod 1777 $instdir/requests
-chmod a+r  $instdir/charge.mns
 
 echo -e '\nwhere do you want to create the executable links?[/usr/local/bin]'
 read linkdir
