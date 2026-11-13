@@ -293,22 +293,21 @@ def loadquotas(filename,node,loaded,mess):
     the first time: the text, not the time of the file, tells a change, since
     an editor can write the file twice within the same clock tick.  A
     malformed file is reported once, and the previous quotas are kept."""
-    error = None
+    unreadable = None
     try:
         with open(filename+'.mns','r',encoding='utf-8') as filein:
             text = filein.read()
     except FileNotFoundError:
         text = '{}'
-    except (OSError, ValueError) as unreadable:
-        text = error = str(unreadable)
+    except (OSError, ValueError) as error:
+        text = unreadable = str(error)
     if text == loaded[0]:
         return loaded
-    if error is None:
-        try:
-            quotas = parsequotas(text,node)
-        except ValueError as malformed:
-            error = str(malformed)
-    if error:
+    try:
+        if unreadable:
+            raise ValueError(unreadable)
+        quotas = parsequotas(text,node)
+    except ValueError as error:
         writewarning(f"quotas.mns ignored, the previous quotas are kept: {error}",mess)
         return text, loaded[1]
     writemessage(f"Quotas: {describequotas(quotas)}",mess)
