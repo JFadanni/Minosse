@@ -1,8 +1,9 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from   optparse   import OptionParser
+from   argparse   import ArgumentParser
 from    Mutil      import *
+from    Mutil      import __version__
 
 """ Minosse a Python-based batch system
 
@@ -25,8 +26,6 @@ along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = "Jacopo Fadanni"
-__date__ = "12th Nov 2023"
-__version__ = '$Revision: 1.3.0 $'
 __credits__ = """Piero Altoè for a nice queue manager."""
 ##------------------------------------------------------------------------------
 ## Files names
@@ -48,13 +47,15 @@ varnames=['hostname','Ncpu','RAM','architecture','status'
 ## Flags
 ##------------------------------------------------------------------------------
 
-parser = OptionParser(usage="%prog", version="%prog 1.0.0")
+parser = ArgumentParser(description="Show the jobs in the Minosse queue")
 
-parser.add_option("-v", "--verbose",
-                  action="store_true", dest="verbose", default=False,
-                  help="make lots of noise")
+parser.add_argument("--version", action="version",
+                    version=f"%(prog)s {__version__}")
+parser.add_argument("-v", "--verbose",
+                    action="store_true", dest="verbose", default=False,
+                    help="make lots of noise")
 
-(options, args) = parser.parse_args()
+options = parser.parse_args()
 
 ##------------------------------------------------------------------------------
 ## Main program
@@ -62,17 +63,17 @@ parser.add_option("-v", "--verbose",
 
 #ifrunning()
 
-print (f'Minosse batch system {__version__}')# fix version
+print (f'Minosse batch system {__version__}')
 print ('-'*60)
 
 charge=readallfile(file2)
 
-if options.verbose == True :
+if options.verbose:
     if charge:
         print ("Queued or running jobs:\n","-"*60)
-        for id in charge:
-            job = charge[id]
-            print(f"{id}:")
+        for jobid in charge:
+            job = charge[jobid]
+            print(f"{jobid}:")
             print(f"  user: {job['user']}")
             print(f"  script: {job['script']}")
             print(f"  priority: {job['priority']}")
@@ -94,8 +95,8 @@ else:
     if charge:
         print ('%15s' % 'user','%6s' % 'Ncpu','%8s' % 'RAM','%7s' % 'id','%7s' % 'status','%9s' % 'priority')
         print ('-'*60)
-        for id in charge:
-            job = charge[id]
+        for jobid in charge:
+            job = charge[jobid]
             user = job['user']
             script = job['script']
             status = job['status']
@@ -103,7 +104,7 @@ else:
             RAM = job['RAM']
             priority = job['priority']
 
-            print ('%15s' % user,'%6s' %Ncpu,'%8s' % RAM,'%7s' % id,'%7s' %status, '%9s' %priority)
+            print ('%15s' % user,'%6s' %Ncpu,'%8s' % RAM,'%7s' % jobid,'%7s' %status, '%9s' %priority)
     else:
         print ('  System free: no job queued or running')
 print ('-'*60)

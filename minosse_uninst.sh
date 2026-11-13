@@ -15,8 +15,6 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with Minosse.  If not, see <http://www.gnu.org/licenses/>.
-#
-#Minosse version 1.3.0, 12th Nov 2023
 #---------------------------------------------------------------------------------
 
 if [[ $USER != 'root' ]]; then
@@ -33,7 +31,7 @@ if [ $var = 'Yes' -o $var = 'Y' -o $var = 'y' -o $var = 'yes' ] ; then
         link=$linkdir
 	run=$(ps -eo args | grep Minosse.py | grep python | awk '{print($2)}')
 	if [[ -n $run ]]; then
-		minosse stop
+		$instdir/minosse stop
 	fi
 	rm -fr $instdir
 	rm $link/msub $link/mdel $link/mstat $link/minosse $link/minosse_uninst
