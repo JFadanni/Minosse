@@ -8,8 +8,15 @@ Tests/run_tests.sh -k daemon -x  # any pytest arguments
 Tests/run_tests.sh shell         # root shell on the simulated server
 ```
 
-Requires podman. The sources are mounted read-only at `/src`, so edits are
-picked up without rebuilding the image.
+Requires podman, or docker with `CONTAINER_ENGINE=docker`. The sources are
+mounted read-only at `/src`, so edits are picked up without rebuilding the
+image.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs pylint, the unit and CLI tests on every
+supported Python (3.8 and later), and the whole suite through `run_tests.sh`
+on every push to `main` and `develop` and on every pull request.
 
 ## The simulated server
 

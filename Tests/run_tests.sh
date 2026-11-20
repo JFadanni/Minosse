@@ -8,12 +8,14 @@ set -euo pipefail
 tests=$(cd "$(dirname "$0")" && pwd)
 src=$(dirname "$tests")
 image=minosse-server
+# podman by default; CONTAINER_ENGINE=docker works too.
+engine=${CONTAINER_ENGINE:-podman}
 
-podman build -q -t "$image" -f "$tests/container/Containerfile" \
+"$engine" build -q -t "$image" -f "$tests/container/Containerfile" \
     "$tests/container" > /dev/null
 
 # --init reaps orphaned job processes, as init would on a real server.
-run=(podman run --rm --init --hostname minosse-node
+run=("$engine" run --rm --init --hostname minosse-node
      --tmpfs /scratch:size=2g -v "$src:/src:ro,Z")
 
 if [[ "${1:-}" == shell ]]; then

@@ -1,6 +1,8 @@
 
 # **Minosse** version 2.0.0
 
+[![CI](https://github.com/JFadanni/Minosse/actions/workflows/ci.yml/badge.svg)](https://github.com/JFadanni/Minosse/actions/workflows/ci.yml)
+
 Minosse is a tiny batch system for a single Linux workstation or server.
 Users submit job scripts; Minosse runs each one, as the user who submitted
 it, as soon as the CPUs, RAM and disk it asks for are free.
@@ -204,7 +206,10 @@ The tests run in a container that simulates the server (requires podman):
 Tests/run_tests.sh
 ```
 
-See [Tests/README.md](Tests/README.md) for details.
+See [Tests/README.md](Tests/README.md) for details. The same suite runs on
+GitHub Actions on every push to `main` and `develop` and on every pull
+request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 Minosse follows [Semantic Versioning](https://semver.org): the version is
 kept only in the `VERSION` file, every change is listed in
