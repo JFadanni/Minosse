@@ -74,6 +74,28 @@ def wait_until(predicate, timeout=10.0, interval=0.1):
     return predicate()
 
 
+def wait_for_exec(proc, timeout=10.0):
+    """Return proc once /proc shows the command line it was started with.
+
+    Popen can return before the kernel has filled in /proc/<pid>/cmdline,
+    which is where demonpids() looks for the daemon: a test that looks for
+    a process it has just started must wait for it first."""
+    expected = b"".join(os.fsencode(arg) + b"\0" for arg in proc.args)
+
+    def cmdline():
+        try:
+            with open(f"/proc/{proc.pid}/cmdline", "rb") as filein:
+                return filein.read() == expected
+        except FileNotFoundError:
+            return False
+
+    if not wait_until(cmdline, timeout):
+        proc.kill()
+        proc.wait()
+        pytest.fail(f"{proc.args} did not start within {timeout}s")
+    return proc
+
+
 class Sandbox:
     """A Minosse installation in a world-writable temporary directory.
 
@@ -226,7 +248,7 @@ def fake_daemon(sandbox):
     # ifrunning() matches "<Mdir>Minosse.py", so the fake replaces it.
     script = sandbox.script("Minosse")
     script.write_text("import time\ntime.sleep(120)\n")
-    proc = subprocess.Popen([sys.executable, str(script)])
+    proc = wait_for_exec(subprocess.Popen([sys.executable, str(script)]))
     yield proc
     proc.kill()
     proc.wait()
