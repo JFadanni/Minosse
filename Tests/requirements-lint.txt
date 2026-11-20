@@ -1,0 +1,5 @@
+# The lint job's tools, pinned so that a new pylint release cannot fail
+# unrelated pull requests: Dependabot proposes each upgrade on its own.
+pylint==4.1.4
+# So that pylint can resolve the imports of the tests.
+pytest==9.2.0

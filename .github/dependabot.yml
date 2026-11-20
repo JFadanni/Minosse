@@ -1,0 +1,29 @@
+# Updates to the CI toolchain, proposed as pull requests to develop.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    # Not before a release is a week old, when a compromised one is
+    # usually caught.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # Tests/requirements-lint.txt, the lint job's tools.
+  - package-ecosystem: pip
+    directory: /Tests
+    target-branch: develop
+    schedule:
+      interval: monthly
+    # Not before a release is a week old, when a compromised one is
+    # usually caught.
+    cooldown:
+      default-days: 7
+    groups:
+      lint:
+        patterns: ["*"]
