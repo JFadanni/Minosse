@@ -15,7 +15,7 @@ import time
 import pytest
 
 import Mutil
-from conftest import job, needs_server, wait_until
+from conftest import job, needs_server, wait_for_exec, wait_until
 
 # Request files are written by the test process, so the daemon, which takes
 # the user from the file owner, sees this user.
@@ -36,15 +36,22 @@ def jobproc(tmp_path):
     """A process that looks like a job started by the daemon: its command
     line is "runuser -u ME -- /jobs/a.sh" and it leads its own session.
 
-    Running runuser needs root, so this is Python (-u: unbuffered) running a
-    file named after ME, with "--" and the script as its arguments."""
-    (tmp_path / ME).write_text("import time\ntime.sleep(60)\n")
-    proc = subprocess.Popen(Mutil.jobcommand(job(user=ME)),
-                            executable=sys.executable, cwd=tmp_path,
-                            start_new_session=True)
-    assert wait_until(lambda: Mutil.isjobprocess(job(user=ME, pid=proc.pid)))
+    Running runuser needs root, so this is bash (-u: no unset variables)
+    running a file named after ME, with "--" and the script as its arguments.
+    Not Python: called "runuser", it looks for its standard library next to
+    /usr/sbin/runuser, and relocatable builds (as uv installs) die at once."""
+    (tmp_path / ME).write_text("sleep 60\n")
+    proc = wait_for_exec(subprocess.Popen(Mutil.jobcommand(job(user=ME)),
+                                          executable="/bin/bash",
+                                          cwd=tmp_path,
+                                          start_new_session=True))
+    assert Mutil.isjobprocess(job(user=ME, pid=proc.pid))
     yield proc
-    proc.kill()
+    # The whole session, or the sleep outlives the test.
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:  # the test has killed it
+        pass
     proc.wait()
 
 
@@ -852,8 +859,10 @@ def test_checkdeletedjob_flush_is_for_root_only(sandbox):
 # ---------------------------------------------------------------------------
 
 def start_fake_daemon(path):
+    """A process that demonpids() recognises as the demon of path's
+    directory, returned once it is visible in /proc."""
     path.write_text("import time\ntime.sleep(60)\n")
-    return subprocess.Popen([sys.executable, str(path)])
+    return wait_for_exec(subprocess.Popen([sys.executable, str(path)]))
 
 
 def test_ifrunning_without_daemon_exits(tmp_path, capsys):
@@ -865,7 +874,7 @@ def test_ifrunning_without_daemon_exits(tmp_path, capsys):
 def test_ifrunning_with_daemon_returns(tmp_path):
     proc = start_fake_daemon(tmp_path / "Minosse.py")
     try:
-        assert wait_until(lambda: Mutil.ifrunning(f"{tmp_path}/") is None)
+        assert Mutil.ifrunning(f"{tmp_path}/") is None
     finally:
         proc.kill()
         proc.wait()
@@ -874,16 +883,20 @@ def test_ifrunning_with_daemon_returns(tmp_path):
 def test_ifrunning_ignores_other_programs_opening_the_daemon(tmp_path,
                                                             capsys):
     # As "vim <Mdir>Minosse.py" would: argv[0] is not a Python interpreter.
+    # bash, waiting on its stdin: a Python called "vim" may not start at all
+    # (see jobproc), and the test would then pass without looking at it.
     path = tmp_path / "Minosse.py"
-    path.write_text("import time\ntime.sleep(60)\n")
-    proc = subprocess.Popen(["vim", str(path)], executable=sys.executable)
+    path.write_text("read -r line\n")
+    proc = wait_for_exec(subprocess.Popen(["vim", str(path)],
+                                          executable="/bin/bash",
+                                          stdin=subprocess.PIPE))
     try:
         with pytest.raises(SystemExit):
             Mutil.ifrunning(f"{tmp_path}/")
         assert "no minosse demon running!" in capsys.readouterr().out
     finally:
         proc.kill()
-        proc.wait()
+        proc.communicate()  # also closes the pipe
 
 
 def test_ifrunning_with_two_daemons_exits(tmp_path, capsys):
